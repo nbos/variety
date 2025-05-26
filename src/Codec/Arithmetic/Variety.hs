@@ -2,9 +2,14 @@
 -- with arbitrary precision.
 module Codec.Arithmetic.Variety (
   Code(..),
-  getBytes,
   fromBits,
+  toBits,
   fromBytes,
+  toBytes,
+  fromString,
+  toString,
+  fromNat,
+  toNat,
   Precision(..),
   encode,
   decode,
@@ -12,46 +17,93 @@ module Codec.Arithmetic.Variety (
   decode1,
   ) where
 
-import Prelude
-import Numeric (readBin, showBin)
+import GHC.Num (integerLog2)
+import Data.Bits
 import Data.Word (Word8)
-import Data.Bits ((.|.), shiftL, testBit, Bits(bit))
-
+import qualified Data.List as L
+import qualified Data.List.Extra as L
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
-import Data.ByteString.Builder (toLazyByteString, word8, Builder)
-
--- | A binary code
-newtype Code = Code { getBits :: String }
-
--- | Pack the code into a lazy ByteString
-getBytes :: Code -> ByteString
-getBytes (Code bits) = bits2Bytes bits
-
--- | Read the code from a list of '0' and '1' chars
-fromBits :: String -> Code
-fromBits = Code
-
--- | Read the code from a lazy ByteString
-fromBytes :: ByteString -> Code
-fromBytes = Code . bytes2Bits
 
 err :: String -> a
 err = error . ("Variety: " ++)
 
--- | Serialize a non-negative integer into a string of 0s and 1s. To
--- remain consistent with recursive definitions, there are no leading
--- zeros so @0@ maps to the empty list.
-toBinary :: Integer -> Code
-toBinary i
-  | i == 0 = Code []
-  | otherwise = Code $ showBin i ""
+----------
+-- BITS --
+----------
 
--- | De-serialize a string of 0s and 1s into an Integer
-fromBinary :: Code -> Integer
-fromBinary (Code str) | null str = 0
-                      | (i,[]):_ <- readBin str = i
-                      | otherwise = err "fromBinary: Parsing error"
+packBits :: [Bool] -> Word8
+packBits = L.foldl' (\acc b -> (acc `shiftL` 1) .|. fromIntegral (fromEnum b)) 0
+
+unpackBits :: Word8 -> [Bool]
+unpackBits w = testBit w <$> [7,6,5,4,3,2,1,0]
+
+---------------
+-- INTERFACE --
+---------------
+
+-- | A binary code
+data Code = Code {
+  codeLen :: !Int,
+  natural :: !Integer
+} deriving (Show,Read)
+
+instance Semigroup Code where
+  (<>) = append
+
+instance Monoid Code where
+  mempty = empty
+
+append :: Code -> Code -> Code
+append (Code len0 nat0) (Code len1 nat1) =
+  Code (len0 + len1) (shiftL nat0 len1 + nat1)
+
+empty :: Code
+empty = Code 0 0
+
+fromBits :: [Bool] -> Code
+fromBits bs = Code len $ L.foldl' setBit 0 ones
+  where
+    len = length bs
+    idxs = [len-1,len-2..0]
+    ones = fmap snd $ filter fst $ zip bs idxs
+
+toBits :: Code -> [Bool]
+toBits (Code len nat) = testBit nat <$> [len-1,len-2..0]
+-- TODO: make sure out of bounds result in 0s
+
+-- | Read the code from a lazy ByteString
+fromBytes :: ByteString -> Code
+fromBytes = fromBits . concatMap unpackBits . BS.unpack
+
+-- | Pack the code into a lazy ByteString
+toBytes :: Code -> ByteString
+toBytes c@(Code len _) = BS.pack $ fmap packBits $
+                         L.chunksOf 8 $ pad ++ toBits c
+  where
+    padLen = len `mod` 8
+    pad = replicate padLen False
+
+-- | Read the code from a list of '0' and '1' chars
+fromString :: String -> Code
+fromString = fromBits . fmap f
+  where f '0' = False
+        f '1' = True
+        f c = err $ "Non-binary char encountered: " ++ [c]
+
+toString :: Code -> String
+toString = fmap f . toBits
+  where f b = if b then '1' else '0'
+
+log2 :: Integer -> Int
+log2 = fromIntegral . integerLog2
+
+fromNat :: Integer -> Code
+fromNat nat = Code (log2 nat) nat
+
+-- | Numeric representation of the code
+toNat :: Code -> Integer
+toNat = natural
 
 -- | Precision policy for encoding/decoding sequences of values. The
 -- same 'Precision' that was used for encoding must be given to 'decode'
@@ -74,26 +126,20 @@ boundsCheck i n
   | 0 <= i && i < n = id
   | otherwise = err $ "Value to encode is out of bounds: " ++ show (i,n)
 
-widthFromBase :: Integer -> Int
-widthFromBase base = length $ getBits $ toBinary maxValue
-  where maxValue = base - 1
--- TODO: compare against using iLog2Ceiling
-
 -- | @'encode1' i n@ will encode a single value @i@ given its base @n@,
 -- or the number of possible values @i@ can take (a.k.a. cardinality or
 -- variety). Note that @i@ is an index and ranges from @[0..n-1]@, while
 -- @n@ is a non-zero positive integer.
-encode1 :: Integer -> Integer -> String
+encode1 :: Integer -> Integer -> Code
 encode1 val base = boundsCheck val base $
-                   padding ++ valBits
+                   Code len val
   where
-    valBits = getBits $ toBinary val
-    width = widthFromBase base
-    padding = replicate (width - length valBits) '0'
+    maxVal = base - 1
+    len = log2 maxVal
 
--- | De-serialize an Integer. Does not depend on the base.
+-- | Return the code as an Integer, regardless of its base
 decode1 :: Code -> Integer
-decode1 = fromBinary
+decode1 = toNat
 
 withinPrecision :: Precision -> Integer -> Bool
 withinPrecision InfinitePrecision = const True
@@ -109,21 +155,21 @@ withinPrecision (PrecisionBytes n)
 -- is an index and ranges from @[0..n-1]@, while @n@ is a non-zero
 -- positive integer.
 encode :: Precision -> [(Integer,Integer)] -> Code
-encode _ [] = Code []
+encode _ [] = empty
 encode prec ((i0,n0):tl) = boundsCheck i0 n0 $
-                           Code (goFresh i0 n0 tl)
+                           goFresh i0 n0 tl
   where
     tooBig = not . withinPrecision prec
 
     -- we don't multiply if a given base is already too big
-    goFresh val _ [] = getBits $ toBinary val
+    goFresh val base [] = encode1 val base
     goFresh val base ((i,n):ins)
-      | tooBig base = getBits (toBinary val) ++ goFresh i n ins
+      | tooBig base = encode1 val base <> goFresh i n ins
       | otherwise = goAcc val base ((i,n):ins)
 
-    goAcc val _ [] = getBits $ toBinary val
+    goAcc val base [] = encode1 val base
     goAcc val base ((i,n):ins)
-      | tooBig base' = getBits (toBinary val) ++ goFresh i n ins
+      | tooBig base' = encode1 val base <> goFresh i n ins
       | otherwise = goAcc (val*n + i) base' ins
       where
         base' = base * n
@@ -132,47 +178,29 @@ encode prec ((i0,n0):tl) = boundsCheck i0 n0 $
 -- a sequence of values, recover the values from the serialization.
 decode :: Precision -> [Integer] -> Code -> [Integer]
 decode _ [] _ = []
-decode prec (n0:tl) (Code str) = goFresh n0 tl str
+decode prec (n0:tl) code = goFresh n0 tl $ toBits code
   where
     tooBig = not . withinPrecision prec
 
+    -- we don't multiply if a given base is already too big
     goFresh _ [] [] = []
-    goFresh _ [] bits = [decode1 $ Code bits]
+    goFresh _ [] bits = [decode1 $ fromBits bits]
     goFresh base (n:ns) bits
       | tooBig base =
-          let (valBits, bits') = splitAt (widthFromBase base) bits
-          in decode1 (Code valBits) : goFresh n ns bits'
+          let len = log2 (base - 1)
+              (valBits, bits') = splitAt len bits
+              valCode = fromBits valBits -- codelen == len
+          in decode1 valCode : goFresh n ns bits'
       | otherwise = goAcc base (n:ns) bits
 
     goAcc _ [] [] = []
-    goAcc _ [] bits = [decode1 $ Code bits]
+    goAcc _ [] bits = [decode1 $ fromBits bits]
     goAcc base (n:ns) bits
       | tooBig base' =
-          let (valBits, bits') = splitAt (widthFromBase base) bits
-          in decode1 (Code valBits) : goFresh n ns bits'
+          let len = log2 (base - 1)
+              (valBits, bits') = splitAt len bits
+              valCode = fromBits valBits -- codelen == len
+          in decode1 valCode : goFresh n ns bits'
       | otherwise = goAcc base' ns bits
       where
         base' = base * n
-
--- | Convert String to ByteString
-bits2Bytes :: String -> ByteString
-bits2Bytes = toLazyByteString . go 0 0
-  where
-    go :: Word8 -> Int -> String -> Builder
-    go byte 8 bits = word8 byte <> go 0 0 bits
-    go byte _ [] = word8 byte
-    go byte i (c:bits) = go byte' (i + 1) bits
-      where
-        byte' = byte .|. (b `shiftL` i)
-        b = case c of '0' -> 0; '1' -> 1
-                      _ -> err $ "Non-binary char encountered: " ++ [c]
--- TODO: compare against using readBin on 8-bit chunks
-
--- | Convert ByteString to String
-bytes2Bits :: ByteString -> String
-bytes2Bits = concatMap byteToBits . BS.unpack
-  where
-    byteToBits :: Word8 -> String
-    byteToBits byte = map (bool2char . testBit byte) [0..7]
-    bool2char b = if b then '1' else '0'
--- TODO: compare against using writeBin
