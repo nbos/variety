@@ -60,6 +60,8 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  Codec.Arithmetic.Variety
+                      Codec.Arithmetic.Variety.BitVec
+                      Codec.Arithmetic.Variety.Bounded
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -69,7 +71,9 @@ library
 
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.17.2.1
+                    , containers
                     , bytestring
+                    , vector
                     , extra
 
     -- Directories containing source files.
