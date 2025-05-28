@@ -2,6 +2,7 @@
 module Codec.Arithmetic.Variety.BitVec
   ( BitVec
   , empty
+  , null
   , append
   , bitVec
   , length
@@ -12,10 +13,11 @@ module Codec.Arithmetic.Variety.BitVec
   , toBytes
   , fromString
   , toString
+  , splitAt
   , bitLen
   ) where
 
-import Prelude hiding (length)
+import Prelude hiding (null, length, splitAt)
 import GHC.Num (integerLog2)
 import Control.Exception (assert)
 
@@ -44,6 +46,10 @@ instance Monoid BitVec where
 -- | The empty bit vector
 empty :: BitVec
 empty = BitVec 0 0
+
+null :: BitVec -> Bool
+null (BitVec 0 0) = True
+null _ = False
 
 -- | Concatenate two bit vectors
 append :: BitVec -> BitVec -> BitVec
@@ -97,6 +103,15 @@ fromString = fromBits . fmap f
 toString :: BitVec -> String
 toString = fmap f . toBits
   where f b = if b then '1' else '0'
+
+splitAt :: Int -> BitVec -> (BitVec, BitVec)
+splitAt n (BitVec len int)
+  | n <= 0    = (empty, BitVec len int)
+  | n >= len  = (BitVec len int, empty)
+  | otherwise = (BitVec n left, BitVec (len - n) right)
+  where
+    right = int .&. ((1 `shiftL` (len - n)) - 1)
+    left = int `shiftR` (len - n)
 
 -- | Pack exactly 8 bits into a byte
 packBits :: [Bool] -> Word8
