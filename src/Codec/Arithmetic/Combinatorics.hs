@@ -3,6 +3,7 @@ module Codec.Arithmetic.Combinatorics
   ( rankPermutation
   , unrankPermutation
   , rankMultisetPermutation
+  , unrankMultisetPermutation
   , multinomial
   ) where
 
@@ -19,13 +20,13 @@ import Codec.Arithmetic.Variety (Value(fromValue), mkValue, toBitVec, decode)
 err :: String -> a
 err = error . ("Combinatorics: " ++)
 
--- | Given a multiset permutation in the form of a list of indexes,
--- return the number of times each index appears for @[0..maxIndex]@
--- (fst) (the multiset) as well as the index of the given permutation in
--- the lexicographic enumeration of all permutations of that multiset
--- (fst . snd) with the total number of permutations in that enumeration
--- (snd . snd) i.e. the multinomial coefficient with a composition equal
--- to the multiset.
+-- | Given a multiset permutation in the form of a list, return the
+-- number of times each element appears in the list (fst) (the multiset)
+-- as well as the index of the given permutation in the lexicographic
+-- enumeration of all permutations of that multiset (fst . snd) as well
+-- as the total number of permutations in that enumeration (snd . snd)
+-- i.e. the multinomial coefficient with a composition equal to the
+-- multiset.
 rankMultisetPermutation :: forall a. Ord a => [a] ->
                            ([(a,Int)], (Integer, Integer))
 rankMultisetPermutation msp = ( M.toList counts
@@ -51,6 +52,33 @@ rankMultisetPermutation msp = ( M.toList counts
         coef'' = coef' * fromIntegral n -- rm `n` factor from denom
         m' = M.update (\_ -> if n' == 0 then Nothing else Just n')
              a m
+
+-- | Given a list of elements with corresponding counts and the index of
+-- a permutation in the lexicographic enumeration of all permutations of
+-- such a multiset, return the permutation as a list of elements.
+unrankMultisetPermutation :: Ord a => [(a,Int)] -> Integer -> [a]
+unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
+  where
+    counts = M.fromList $ filter ((> 0) . snd) l
+    total0 = sum counts
+    coef0 = factorial total0
+            `div` product (factorial <$> counts)
+
+    go total coef m i | M.null m = []
+                      | otherwise = go total' coef'' m' i'
+      where
+        total' = total - 1 -- decrement `total` by 1
+        coef' = coef `div` total -- rm `total` factor from num
+        subCoefs = (coef' *) . fromIntegral <$> m
+        (a, lowerSubCoefsSum, coef'') = findBin 0 $ M.toList subCoefs
+        i' = i - lowerSubCoefsSum -- update index to local bin
+        m' = M.update (\n -> if n == 1 then Nothing else Just $ n - 1)
+             a m
+
+        findBin _ [] = error "impossible"
+        findBin acc ((el,subCoef):ascs) | acc' > i = (el, acc, subCoef)
+                                        | otherwise = findBin acc' ascs
+          where acc' = acc + subCoef
 
 multinomial :: [Int] -> Integer
 multinomial ns = factorial (sum ns)
