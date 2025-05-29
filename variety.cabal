@@ -77,7 +77,7 @@ library
                     , extra
                     , bytestring
                     , exact-combinatorics
-
+                    
     -- Directories containing source files.
     hs-source-dirs:   src
 
