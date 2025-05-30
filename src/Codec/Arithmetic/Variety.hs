@@ -37,7 +37,7 @@ decode :: BitVec -> [Integer] -> [Integer]
 decode bv bases = case init $ scanr (*) 1 bases of -- last is 1
   [] -> error "impossible"
   (base:ns) -- base == product bases
-    | len == expectedLen -> go (BV.integer bv) ns
+    | len == expectedLen -> go (BV.toInteger bv) ns
     | otherwise ->
         err $ "Bit vector incompatible with provided list of bases: "
         ++ show (bv, bases) ++ "\nVector has " ++ show len
@@ -59,7 +59,7 @@ encode1 = toBitVec .: mkValue
 
 -- | Recover the digit from a bit vector.
 decode1 :: BitVec -> Integer
-decode1 = BV.integer
+decode1 = BV.toInteger
 
 ---------------------
 -- VALUE INTERFACE --
