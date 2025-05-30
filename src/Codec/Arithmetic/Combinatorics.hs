@@ -1,10 +1,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Codec.Arithmetic.Combinatorics
-  ( rankPermutation
-  , unrankPermutation
-  , rankMultisetPermutation
+  ( rankMultisetPermutation
   , unrankMultisetPermutation
   , multinomial
+
+  , rankPermutation
+  , unrankPermutation
+
+  , rankCombination
+  , unrankCombination
+  , choose
+
+  , rankDistribution
+  , unrankDistribution
+
+  , rankDistribution1
+  , unrankDistribution1
   ) where
 
 import Control.Exception (assert)
@@ -126,3 +137,65 @@ unrankPermutation as i0 | length as /= n0 = err' "Not a list of unique elements"
     -- | Iteratively extract elements at given indexes from a set
     go s [] = assert (S.null s) []
     go s (i:rest) = S.elemAt i s : go (S.deleteAt i s)  rest
+
+rankCombination :: [Bool] -> ((Int, Int), (Integer, Integer))
+rankCombination c = ( (n0, k0)
+                    , (res, n0Ck0) )
+  where
+    n0 = length c
+    k0 = sum $ fromEnum <$> c
+    n0Ck0 = n0 `choose` k0
+    res = sum $ go (fromIntegral n0) (fromIntegral k0) n0Ck0 c
+
+    go :: Integer -> Integer -> Integer -> [Bool] -> [Integer]
+    go _ _ _ [] = []
+    go n k nCk (b:bs) = if b then go (n-1) k nCk0 bs
+                        else nCk0 : go (n-1) (k-1) nCk1 bs
+      where
+        nCk0 = nCk - nCk1 -- sub coef if 0/False
+        nCk1 = (nCk * k) `div` n -- sub coef if 1/True
+
+unrankCombination :: (Int, Int) -> Integer -> [Bool]
+unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
+                            n0 `choose` k0
+  where
+    go n k nCk i | i < nCk0 = False : go (n-1) k nCk0 i
+                 | otherwise = True : go (n-1) (k-1) nCk1 (i-nCk0)
+      where
+        nCk0 = nCk - nCk1 -- sub coef if 0/False
+        nCk1 = (nCk * k) `div` n -- sub coef if 1/True
+
+choose :: Int -> Int -> Integer
+choose n k = num `div` denom
+  where num = factorial n
+        denom = factorial k * factorial (n-k)
+
+rankDistribution :: [Int] -> ((Int, Int), (Integer, Integer))
+rankDistribution [] = ((0,0),(0,1))
+rankDistribution (n0:ns) = rankCombination $
+  replicate n0 False -- 0s are stars, 1s are bars
+  ++ concatMap ((True:) . flip replicate False) ns
+
+unrankDistribution :: (Int, Int) -> Integer -> [Int]
+unrankDistribution (total,bins) i = go bs
+  where
+    n = total + bins - 1 -- 0s and 1s
+    k = bins - 1 -- number of 1s
+    bs = unrankCombination (n,k) i
+
+    go l | null l = []
+         | otherwise = length bin : go l'
+      where (bin,l') = break id l -- break on 1
+
+rankDistribution1 :: [Int] -> ((Int, Int), (Integer, Integer))
+rankDistribution1 ns | all (>= 0) ns' = ((total+bins,bins),res)
+                     | otherwise = invalid
+  where
+    ns' = (+(-1)) <$> ns
+    ((total, bins), res) = rankDistribution ns'
+    invalid = err $ "rankDistrubtion1: "
+      ++ "all bins must have at least one element"
+
+unrankDistribution1 :: (Int, Int) -> Integer -> [Int]
+unrankDistribution1 (total,bins) =
+  fmap (+1) . unrankDistribution (total-bins,bins)
