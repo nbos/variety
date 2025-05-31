@@ -12,6 +12,8 @@ module Codec.Arithmetic.Variety.BitVec
   , splitAt
   , replicate
   , countLeadingZeros
+  , (!!)
+  , (!?)
 
   -- * Conversions
   , fromInteger
@@ -30,7 +32,7 @@ module Codec.Arithmetic.Variety.BitVec
   ) where
 
 import Prelude hiding
-  (null, length, take, drop, splitAt, replicate, fromInteger, toInteger)
+  (null, length, take, drop, splitAt, replicate, (!!), fromInteger, toInteger)
 import GHC.Num (integerLog2)
 import Control.Exception (assert)
 
@@ -104,6 +106,16 @@ replicate n True = BitVec n (Bits.bit n - 1)
 countLeadingZeros :: BitVec -> Int
 countLeadingZeros (BitVec len int) = len - intLen
   where intLen = bitLen int
+
+(!!) :: BitVec -> Int -> Bool
+(BitVec len int) !! i = Bits.testBit int (len - i - 1)
+infixl 9 !!
+
+(!?) :: BitVec -> Int -> Maybe Bool
+(BitVec len int) !? i
+  | i < 0 || i >= len = Nothing
+  | otherwise = Just $ Bits.testBit int (len - i - 1)
+infixl 9 !?
 
 -----------------
 -- CONVERSIONS --
