@@ -63,7 +63,9 @@ library
                       Codec.Arithmetic.Variety.BitVec
                       Codec.Arithmetic.Variety.Bounded
                       Codec.Arithmetic.Combinatorics
+
                       Codec.Elias
+                      Codec.Elias.Natural
 
     -- Modules included in this library but not exported.
     -- other-modules:

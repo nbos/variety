@@ -12,7 +12,7 @@ module Codec.Elias
     , decodeOmega
     ) where
 
-import Data.Bifunctor
+import Data.Bifunctor (Bifunctor(first))
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 import qualified Codec.Arithmetic.Variety.BitVec as BV
 
