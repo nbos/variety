@@ -1,5 +1,13 @@
--- | Produce optimal arithmetic encodings of values in uniform spaces
--- with arbitrary precision.
+-- | Since the arithmetic operations of composition might get time
+-- consuming on very large codes, an equivalent interface is given in
+-- `Codec.Arithmetic.Variety.Bounded` which produces and reads bits in
+-- chunks whenever spaces are about to grow beyond a certain size given
+-- in bytes, at the cost of at most one bit per chunk.
+--
+-- While the Haskell language standard defines `Integer` as having no
+-- upper bound, GHC most commonly uses the GNU Multiple Precision
+-- Arithmetic Library (GMP) as a backend for it, which imposes a limit
+-- of 16GiB (or a little over 17GB) on the size of any `Integer`.
 module Codec.Arithmetic.Variety.Bounded
   ( encode
   , decode

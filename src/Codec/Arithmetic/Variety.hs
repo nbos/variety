@@ -1,6 +1,19 @@
 {-# LANGUAGE BangPatterns, InstanceSigs #-}
--- | Produce optimal arithmetic encodings of values in uniform spaces
--- with infinite precision.
+-- | The optimal (shortest) binary code of a value in a domain of
+-- uniform probability is simply the binary expansion of the index of
+-- the value in that space. The optimal code of two such values is the
+-- index of the pair in the cartesian product of both domains, and so on
+-- for any number of values. This package defines a type `Value` with a
+-- `Monoid` instance that performs this sort of composition. This kind
+-- of iterative expansion of the base to accomodate larger tuples of
+-- values is equivalent to the progressive widening of the space done in
+-- a typical [arithmetic
+-- codec](https://en.wikipedia.org/wiki/Arithmetic_coding) on a rational
+-- number, except that the whole code is kept in memory and we keep
+-- infinite precision.
+--
+-- The binary interface is done though a `BitVec` which uses the
+-- `Integer` datatype as a store of bits.
 module Codec.Arithmetic.Variety
   ( encode
   , decode

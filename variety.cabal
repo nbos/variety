@@ -23,10 +23,22 @@ name:               variety
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:
+synopsis:           integer arithmetic codes
 
 -- A longer description of the package.
--- description:
+description:        The @Variety@ module provides functions to optimally encode and decode sequences
+                    of indexes in uniform probability spaces.
+                    .
+                    If codes get too large and slow to process, @Variety.Bounded@ provides similar
+                    interface with a precision parameter at small cost to code length.
+                    .
+                    The @Combinatorics@ module provides functions to optimally encode and decode
+                    common combinatorial objects through ranking and unranking.
+                    .
+                    For non-parametric encoding and decoding of integers, use universal Elias codes
+                    in the @Elias@ module. The usual definition doesn't allow for an encoding of 0,
+                    so a mapping is baked into the functions in @Elias.Natural@ that shifts the number
+                    line by 1.
 
 -- The license under which the package is released.
 license:            MIT

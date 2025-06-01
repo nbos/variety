@@ -1,18 +1,59 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+-- | Optimal codes for combinatorial objects.
+--
+-- The integer on which a combinatorial objects is mapped is typically
+-- called its rank. Below are implementations of ranking and unranking
+-- algorithms for the indexes of common combinatorial objects in the
+-- lexicographic enumeration of objects of the same parameters.
 module Codec.Arithmetic.Combinatorics
-  ( rankMultisetPermutation
+  ( -- * Multiset Permutations
+
+    -- | [Multiset permutations]
+    -- (https://en.wikipedia.org/wiki/Permutation#Permutations_of_multisets)
+    -- are ways to order the elements of a set where elements may appear
+    -- more than once. The number of such permutations is equal to the
+    -- multinomial coefficient with the same parameters: \[ {n \choose
+    -- k_{1}, k_{2}, \ldots, k_{m}} = \frac{n!}{k_{1}! k_{2}! \cdots
+    -- k_{m}!} \] This is the most general definition in this module,
+    -- of which all following objects are special cases.
+
+    rankMultisetPermutation
   , unrankMultisetPermutation
   , multinomial
 
+  -- * Permutations
+
+  -- | A [permutation](https://en.wikipedia.org/wiki/Permutation) is an
+  -- ordering of all the objects of a set. The number of permutations of
+  -- a set of \(n\) elements is \(n!\).
+
   , rankPermutation
   , unrankPermutation
+
+  -- * Combinations
+
+  -- | A [combination](https://en.wikipedia.org/wiki/Combination) is a
+  -- selection of \(k\) elements from a set of size \(n\). The number of
+  -- combinations for parameters \(n\) and \(k\) is given by the
+  -- binomial coefficient: \[ {n \choose k} = \frac{n!}{k! (n-k)!}  \]
 
   , rankCombination
   , unrankCombination
   , choose
 
+  -- * Distributions
+
+  -- | A distribution (usually discussed under the name [stars and
+  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics))
+  -- is a way to distribute \(n\) equal elements (stars) among \(k\)
+  -- bins (i.e. \(k-1\) bars ).
+
   , rankDistribution
   , unrankDistribution
+
+  -- * Non-Empty Distributions
+
+  -- | The class of distributions that have at least one element per
+  -- bin.
 
   , rankDistribution1
   , unrankDistribution1
@@ -31,15 +72,10 @@ import Codec.Arithmetic.Variety (Value(fromValue), mkValue, toBitVec, decode)
 err :: String -> a
 err = error . ("Combinatorics: " ++)
 
--- | Given a multiset permutation in the form of a list, return the
--- number of times each element appears in the list (fst) (the multiset)
--- as well as the index of the given permutation in the lexicographic
--- enumeration of all permutations of that multiset (fst . snd) as well
--- as the total number of permutations in that enumeration (snd . snd)
--- i.e. the multinomial coefficient with a composition equal to the
--- multiset.
-rankMultisetPermutation :: forall a. Ord a => [a] ->
-                           ([(a,Int)], (Integer, Integer))
+-- | Rank a multiset permutation. Returns the count of each element in
+-- the set, the rank and the total number of permutations with those
+-- counts (the multinomial coefficient).
+rankMultisetPermutation :: Ord a => [a] -> ([(a,Int)], (Integer, Integer))
 rankMultisetPermutation msp = ( M.toList counts
                               , (index, coef0) )
   where
@@ -49,7 +85,7 @@ rankMultisetPermutation msp = ( M.toList counts
             `div` product (factorial <$> counts)
     index = sum $ go (fromIntegral total0) coef0 counts msp
 
-    go :: Integer -> Integer -> Map a Int -> [a] -> [Integer]
+    go :: Ord a => Integer -> Integer -> Map a Int -> [a] -> [Integer]
     go _ _ _ [] = []
     go total coef m (a:as) = sum lowerSubCoefs :
                              go total' coef'' m' as
@@ -64,9 +100,8 @@ rankMultisetPermutation msp = ( M.toList counts
         m' = M.update (\_ -> if n' == 0 then Nothing else Just n')
              a m
 
--- | Given a list of elements with corresponding counts and the index of
--- a permutation in the lexicographic enumeration of all permutations of
--- such a multiset, return the permutation as a list of elements.
+-- | Reconstruct a multiset permutation, given the count of each element
+-- in the set and a rank.
 unrankMultisetPermutation :: Ord a => [(a,Int)] -> Integer -> [a]
 unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
   where
@@ -91,15 +126,14 @@ unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
                                         | otherwise = findBin acc' ascs
           where acc' = acc + subCoef
 
+-- | Computes the multinomial coefficient.
 multinomial :: [Int] -> Integer
 multinomial ns = factorial (sum ns)
                  `div` product (factorial <$> ns)
 
--- | Given a permutation of `n` elements, return its encoding/index
--- (fst) in the lexicographic enumeration of all permutations of those
--- elements as well as the total number of possible permutations (snd)
--- `n!`. This is the same as ranking the multiset permutation where each
--- element only appears once.
+
+-- | Rank a permutation. Returns the rank and the total number of
+-- permutations of sets with that size ( \(n!\) ).
 rankPermutation :: Ord a => [a] -> (Integer, Integer)
 rankPermutation p | length p /= n0 = err' "Not a list of unique elements"
                   | otherwise = fromValue val
@@ -119,10 +153,8 @@ rankPermutation p | length p /= n0 = err' "Not a list of unique elements"
       where i = S.findIndex a s
             s' = S.delete a s
 
--- | Given a list of `n` unique elements and an index `i < n!`, produce
--- the permutation at index `i` of the lexicographic enumeration of all
--- permutations of those `n` elements. This is the same as unranking the
--- multiset permutation where each element only appears once.
+-- | Reconstruct a permutation given a set of elements and a rank. The
+-- order in which the elements of the set is given does not matter.
 unrankPermutation :: Ord a => [a] -> Integer -> [a]
 unrankPermutation as i0 | length as /= n0 = err' "Not a list of unique elements"
                         | otherwise = go s0 is
@@ -138,6 +170,10 @@ unrankPermutation as i0 | length as /= n0 = err' "Not a list of unique elements"
     go s [] = assert (S.null s) []
     go s (i:rest) = S.elemAt i s : go (S.deleteAt i s)  rest
 
+-- | Rank a combination in the form of a list of booleans. Returns the
+-- \((n,k)\) parameters (where \(k\) is the number of `True` values and
+-- \(n\) is the total), the rank and the total number of combinations
+-- with those parameters (the binomial coefficient).
 rankCombination :: [Bool] -> ((Int, Int), (Integer, Integer))
 rankCombination c = ( (n0, k0)
                     , (res, n0Ck0) )
@@ -155,6 +191,7 @@ rankCombination c = ( (n0, k0)
         nCk0 = nCk - nCk1 -- sub coef if 0/False
         nCk1 = (nCk * k) `div` n -- sub coef if 1/True
 
+-- | Reconstruct a combination given \((n,k)\) and a rank.
 unrankCombination :: (Int, Int) -> Integer -> [Bool]
 unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
                             n0 `choose` k0
@@ -165,17 +202,25 @@ unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
         nCk0 = nCk - nCk1 -- sub coef if 0/False
         nCk1 = (nCk * k) `div` n -- sub coef if 1/True
 
+-- | Computes the binomial coefficent given \(n\) and \(k\).
 choose :: Int -> Int -> Integer
 choose n k = num `div` denom
   where num = factorial n
         denom = factorial k * factorial (n-k)
 
+-- | Rank a distribution in the form of a list bin counts. Returns the
+-- \((n,k)\) parameters (where \(n\) is the total number of elements and
+-- \(k\) is the number of bins), the rank and the total number of
+-- distributions with those parameters.
 rankDistribution :: [Int] -> ((Int, Int), (Integer, Integer))
 rankDistribution [] = ((0,0),(0,1))
-rankDistribution (n0:ns) = rankCombination $
-  replicate n0 False -- 0s are stars, 1s are bars
-  ++ concatMap ((True:) . flip replicate False) ns
+rankDistribution (n0:ns)
+  | n0 >= 0 && all (>= 0) ns =
+    rankCombination $ replicate n0 False -- 0s are stars, 1s are bars
+    ++ concatMap ((True:) . flip replicate False) ns
+  | otherwise = err "rankDistrubtion1: negative bin count"
 
+-- | Reconstruct a distribution given \((n,k)\) and a rank.
 unrankDistribution :: (Int, Int) -> Integer -> [Int]
 unrankDistribution (total,bins) i = go bs
   where
@@ -187,6 +232,10 @@ unrankDistribution (total,bins) i = go bs
          | otherwise = length bin : go l'
       where (bin,l') = break id l -- break on 1
 
+-- | Rank a non-empty distribution in the form of a list bin
+-- counts. Returns the \((n,k)\) parameters (where \(n\) is the total
+-- number of elements and \(k\) is the number of bins), the rank and the
+-- total number of distributions with those parameters.
 rankDistribution1 :: [Int] -> ((Int, Int), (Integer, Integer))
 rankDistribution1 ns | all (>= 0) ns' = ((total+bins,bins),res)
                      | otherwise = invalid
@@ -196,6 +245,7 @@ rankDistribution1 ns | all (>= 0) ns' = ((total+bins,bins),res)
     invalid = err $ "rankDistrubtion1: "
       ++ "all bins must have at least one element"
 
+-- | Reconstruct a distribution given \((n,k)\) and a rank.
 unrankDistribution1 :: (Int, Int) -> Integer -> [Int]
 unrankDistribution1 (total,bins) =
   fmap (+1) . unrankDistribution (total-bins,bins)
