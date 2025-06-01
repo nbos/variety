@@ -1,13 +1,13 @@
--- | Since the arithmetic operations of composition might get time
--- consuming on very large codes, an equivalent interface is given in
--- `Codec.Arithmetic.Variety.Bounded` which produces and reads bits in
--- chunks whenever spaces are about to grow beyond a certain size given
--- in bytes, at the cost of at most one bit per chunk.
+-- | Since the arithmetic operations of composition might get
+-- computationally expensive on very large codes, a similar interface is
+-- provided here which produces and consumes bits in chunks whenever
+-- spaces are about to grow beyond a certain size given in bytes, at the
+-- cost of at most one bit per chunk.
 --
 -- While the Haskell language standard defines `Integer` as having no
 -- upper bound, GHC most commonly uses the GNU Multiple Precision
--- Arithmetic Library (GMP) as a backend for it, which imposes a limit
--- of 16GiB (or a little over 17GB) on the size of any `Integer`.
+-- Arithmetic Library (GMP) as a backend for it, which incurs a limit of
+-- 16GiB (or a little over 17GB) on the size of `Integer` values.
 module Codec.Arithmetic.Variety.Bounded
   ( encode
   , decode
@@ -22,11 +22,9 @@ import qualified Codec.Arithmetic.Variety.BitVec as BV
 err :: String -> a
 err = error . ("Variety.Bounded: " ++)
 
--- | Given a precision, optimally encode a sequence of value-base pairs
--- @(i,n)@, where @i@ is the value and @n@ is the base, or the number of
--- values @i@ could take (a.k.a. cardinality or variety). Note that @i@
--- is an index and ranges from @[0..n-1]@, while @n@ is a non-zero
--- positive integer.
+-- | Given a max precision in bytes, encode a series of value-base pairs
+-- into a single bit vector. Bases must be at least equal to @1@ and the
+-- associated values must exist in the range @[0..base-1]@.
 encode :: Int -> [(Integer,Integer)] -> BitVec
 encode prec ins | prec < 0 = err "Precision must be positive"
                 | otherwise = case vals of
@@ -49,8 +47,9 @@ encode prec ins | prec < 0 = err "Precision must be positive"
       where
         acc' = acc <> v
 
--- | Given the same precision policy and bases that were used to encode
--- a sequence of values, recover the values from the serialization.
+-- | Decode a bit vector given the same precision and series of bases
+-- that was used to encode it. Throws an error if the given vector's
+-- size doesn't match the given parameters.
 decode :: Int -> [Integer] -> BitVec -> [Integer]
 decode prec | prec < 0 = err "Precision must be positive"
             | otherwise = goFresh 1

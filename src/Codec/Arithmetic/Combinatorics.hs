@@ -43,7 +43,7 @@ module Codec.Arithmetic.Combinatorics
   -- * Distributions
 
   -- | A distribution (usually discussed under the name [stars and
-  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics))
+  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics\))
   -- is a way to distribute \(n\) equal elements (stars) among \(k\)
   -- bins (i.e. \(k-1\) bars ).
 
