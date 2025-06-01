@@ -9,7 +9,7 @@ module Codec.Elias.Natural
 
       -- | An Elias gamma code consists of the binary expansion of an
       -- integer, preceded by the unary encoding of the length of that
-      -- expansion as a string of zeros.
+      -- expansion in zeros.
 
       encodeGamma
     , decodeGamma
@@ -17,8 +17,8 @@ module Codec.Elias.Natural
     -- * Delta coding
 
     -- | An Elias delta code is like an Elias gamma code except that the
-    -- length is itself coded in a gamma code instead of its unary
-    -- encoding.
+    -- length is itself coded like a gamma code instead of simply a
+    -- unary encoding.
 
     , encodeDelta
     , decodeDelta

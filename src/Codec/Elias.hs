@@ -5,7 +5,7 @@ module Codec.Elias
 
       -- | An Elias gamma code consists of the binary expansion of an
       -- integer, preceded by the unary encoding of the length of that
-      -- expansion as a string of zeros.
+      -- expansion in zeros.
 
       encodeGamma
     , decodeGamma
@@ -13,8 +13,8 @@ module Codec.Elias
     -- * Delta coding
 
     -- | An Elias delta code is like an Elias gamma code except that the
-    -- length is itself coded in a gamma code instead of its unary
-    -- encoding.
+    -- length is itself coded like a gamma code instead of simply a
+    -- unary encoding.
 
     , encodeDelta
     , decodeDelta
@@ -30,6 +30,7 @@ module Codec.Elias
     , decodeOmega
     ) where
 
+import qualified Data.Bits as Bits
 import Data.Bifunctor (Bifunctor(first))
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 import qualified Codec.Arithmetic.Variety.BitVec as BV
@@ -40,34 +41,36 @@ err = error "Elias: Number must be positive and non-zero"
 -- | Encode a number in a Elias gamma code. Throws an error if the input
 -- is not positive and non-zero.
 encodeGamma :: Integer -> BitVec
-encodeGamma n | n > 0 = zeros <> bv
+encodeGamma x | x > 0 = BV.replicate n False <> xBits
               | otherwise = err
   where
-    len = BV.bitLen n
-    zeros = BV.replicate (len-1) False
-    bv = BV.bitVec len n
+    xBits = BV.fromInteger x
+    n = BV.length xBits - 1
 
 -- | Try to decode an Elias gamma code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
 -- the `BitVec`, with the value code removed. Returns @Nothing@ if the
 -- bit vector doesn't contain enough bits to define a number.
 decodeGamma :: BitVec -> Maybe (Integer, BitVec)
-decodeGamma bv | BV.length valBits /= len = Nothing
-               | otherwise = Just (val, bv'')
+decodeGamma bv | BV.length xBits /= xLen = Nothing
+               | otherwise = Just (x, bv'')
   where
-    len = BV.countLeadingZeros bv + 1
-    bv' = BV.bitVec (BV.length bv - len) $ BV.toInteger bv
-    (valBits, bv'') = BV.splitAt len bv'
-    val = BV.toInteger valBits
+    n = BV.countLeadingZeros bv
+    xLen = n + 1
+    bv' = BV.bitVec (BV.length bv - n) $ BV.toInteger bv -- truncate
+    (xBits, bv'') = BV.splitAt xLen bv'
+    x = BV.toInteger xBits
 
 -- | Encode a number in a Elias delta code. Throws an error if the input
 -- is not positive and non-zero.
 encodeDelta :: Integer -> BitVec
-encodeDelta n | n > 0 = encodeGamma (fromIntegral len) <> bv
+encodeDelta x | x > 0 = encodeGamma (fromIntegral xLen) <> tailBits
               | otherwise = err
   where
-    len = BV.bitLen n
-    bv = BV.bitVec len n
+    xBits = BV.fromInteger x
+    xLen = BV.length xBits
+    n = xLen - 1
+    tailBits = BV.bitVec n $ Bits.clearBit x n -- without leading bit
 
 -- | Try to decode an Elias delta code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
@@ -75,15 +78,17 @@ encodeDelta n | n > 0 = encodeGamma (fromIntegral len) <> bv
 -- bit vector doesn't contain enough bits to define a number.
 decodeDelta :: BitVec -> Maybe (Integer, BitVec)
 decodeDelta bv = do
-  (len, bv') <- first ((+1) . fromIntegral) <$> decodeGamma bv
-  let (valBits, bv'') = BV.splitAt len bv'
-  if BV.length valBits /= len then Nothing
-    else Just (BV.toInteger valBits, bv'')
+  (xLen, bv') <- first fromIntegral <$> decodeGamma bv
+  let n = xLen - 1
+      (xTail, bv'') = BV.splitAt n bv'
+      xBits = BV.singleton True <> xTail
+  if BV.length xBits /= xLen then Nothing
+    else Just (BV.toInteger xBits, bv'')
 
 -- | Encode a number in a Elias omega code. Throws an error if the input
 -- is not positive and non-zero.
 encodeOmega :: Integer -> BitVec
-encodeOmega n0 | n0 > 0 = go n0 eom
+encodeOmega x0 | x0 > 0 = go x0 eom
                | otherwise = err
   where
     eom = BV.bitVec 1 0 -- "0"
@@ -107,7 +112,7 @@ decodeOmega = go 1
         True | BV.length valBits /= len -> Nothing
              | otherwise -> go n' bv'
           where
-            len = fromIntegral n
+            len = fromIntegral n + 1
             (valBits, bv') = BV.splitAt len bv
             n' = BV.toInteger valBits
 

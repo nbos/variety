@@ -19,6 +19,7 @@ module Codec.Arithmetic.Variety.BitVec
   , empty
   , null
   , length
+  , singleton
   , append
   , take
   , drop
@@ -138,6 +139,11 @@ length (BitVec len _) = len
 append :: BitVec -> BitVec -> BitVec
 append (BitVec len0 int0) (BitVec len1 int1) =
   BitVec (len0 + len1) (Bits.shiftL int0 len1 + int1)
+
+-- | A vector of length 1 with the given bit.
+singleton :: Bool -> BitVec
+singleton False = BitVec 1 0
+singleton True = BitVec 1 1
 
 -- | @`take` n bv@ returns the bit vector consisting of the first @n@
 -- bits of @bv@.
