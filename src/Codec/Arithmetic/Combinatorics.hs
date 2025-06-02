@@ -182,8 +182,8 @@ rankCombination c = ( (n0, k0)
 
     go :: Integer -> Integer -> Integer -> [Bool] -> [Integer]
     go _ _ _ [] = []
-    go n k nCk (b:bs) = if b then go (n-1) k nCk0 bs
-                        else nCk0 : go (n-1) (k-1) nCk1 bs
+    go n k nCk (b:bs) = if b then nCk0 : go (n-1) (k-1) nCk1 bs
+                        else go (n-1) k nCk0 bs
       where
         nCk0 = nCk - nCk1 -- sub coef if 0/False
         nCk1 = (nCk * k) `div` n -- sub coef if 1/True
@@ -193,7 +193,8 @@ unrankCombination :: (Int, Int) -> Integer -> [Bool]
 unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
                             n0 `choose` k0
   where
-    go n k nCk i | i < nCk0 = False : go (n-1) k nCk0 i
+    go n k nCk i | n == 0 = []
+                 | i < nCk0 = False : go (n-1) k nCk0 i
                  | otherwise = True : go (n-1) (k-1) nCk1 (i-nCk0)
       where
         nCk0 = nCk - nCk1 -- sub coef if 0/False

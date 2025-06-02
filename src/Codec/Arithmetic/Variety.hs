@@ -49,7 +49,7 @@ encode = toBitVec . mconcat . fmap (uncurry mkValue)
 -- the given bases.
 decode :: BitVec -> [Integer] -> [Integer]
 decode bv bases = case init $ scanr (*) 1 bases of -- last is 1
-  [] -> error "impossible"
+  [] -> []
   (base:ns) -- base == product bases
     | len == expectedLen -> go (BV.toInteger bv) ns
     | otherwise ->
@@ -63,8 +63,8 @@ decode bv bases = case init $ scanr (*) 1 bases of -- last is 1
 
   where
     go i [] = [i]
-    go i2 (n1:ns) = let (i0,i1) = quotRem i2 n1
-                    in i0 : go i1 ns
+    go i2 (n1:ns) = i0 : go i1 ns
+      where (i0,i1) = quotRem i2 n1
 
 -- | Consider a positive integer as a bit vector, given its base. The
 -- base is only required to determine the number of leading 0s.
