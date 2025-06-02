@@ -88,21 +88,20 @@ rankMultisetPermutation msp = ( M.toList counts
     go :: Ord a => Integer -> Integer -> Map a Int -> [a] -> [Integer]
     go _ _ _ [] = []
     go total coef m (a:as) = sum lowerSubCoefs :
-                             go total' coef'' m' as
+                             go total' coef' m' as
       where
         (lt,eq,_) = M.splitLookup a m
         total' = total - 1 -- decrement `total` by 1
-        coef' = coef `div` total -- rm `total` factor from num
-        lowerSubCoefs = (coef' *) . fromIntegral <$> lt
+        lowerSubCoefs = (`div` total) . (coef *) . fromIntegral <$> lt
         n = fromJust eq
         n' = n - 1 -- decrement `a`'s count by 1
-        coef'' = coef' * fromIntegral n -- rm `n` factor from denom
+        coef' = (coef * fromIntegral n) `div` total -- rm `n` factor from denom
         m' = M.update (\_ -> if n' == 0 then Nothing else Just n')
              a m
 
 -- | Reconstruct a multiset permutation, given the count of each element
 -- in the set and a rank.
-unrankMultisetPermutation :: Ord a => [(a,Int)] -> Integer -> [a]
+unrankMultisetPermutation :: (Show a, Ord a) => [(a,Int)] -> Integer -> [a]
 unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
   where
     counts = M.fromList $ filter ((> 0) . snd) l
@@ -111,18 +110,17 @@ unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
             `div` product (factorial <$> counts)
 
     go total coef m i | M.null m = []
-                      | otherwise = go total' coef'' m' i'
+                      | otherwise = a : go total' coef' m' i'
       where
         total' = total - 1 -- decrement `total` by 1
-        coef' = coef `div` total -- rm `total` factor from num
-        subCoefs = (coef' *) . fromIntegral <$> m
-        (a, lowerSubCoefsSum, coef'') = findBin 0 $ M.toList subCoefs
+        subCoefs = (`div` total) . (coef *) . fromIntegral <$> m
+        (a, lowerSubCoefsSum, coef') = findBin 0 $ M.toList subCoefs
         i' = i - lowerSubCoefsSum -- update index to local bin
         m' = M.update (\n -> if n == 1 then Nothing else Just $ n - 1)
              a m
 
         findBin _ [] = error "impossible"
-        findBin acc ((el,subCoef):ascs) | acc' > i = (el, acc, subCoef)
+        findBin acc ((el,subCoef):ascs) | null ascs || acc' > i = (el, acc, subCoef)
                                         | otherwise = findBin acc' ascs
           where acc' = acc + subCoef
 
@@ -130,7 +128,6 @@ unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
 multinomial :: [Int] -> Integer
 multinomial ns = factorial (sum ns)
                  `div` product (factorial <$> ns)
-
 
 -- | Rank a permutation. Returns the rank and the total number of
 -- permutations of sets with that size ( \(n!\) ).
@@ -191,7 +188,7 @@ rankCombination c = ( (n0, k0)
         nCk0 = nCk - nCk1 -- sub coef if 0/False
         nCk1 = (nCk * k) `div` n -- sub coef if 1/True
 
--- | Reconstruct a combination given \((n,k)\) and a rank.
+-- | Reconstruct a combination given parameters \((n,k)\) and a rank.
 unrankCombination :: (Int, Int) -> Integer -> [Bool]
 unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
                             n0 `choose` k0
@@ -202,9 +199,10 @@ unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
         nCk0 = nCk - nCk1 -- sub coef if 0/False
         nCk1 = (nCk * k) `div` n -- sub coef if 1/True
 
--- | Computes the binomial coefficent given \(n\) and \(k\).
+-- | Computes the binomial coefficent given parameters \(n\) and \(k\).
 choose :: Int -> Int -> Integer
-choose n k = num `div` denom
+choose n k | k > n = 0
+           | otherwise = num `div` denom
   where num = factorial n
         denom = factorial k * factorial (n-k)
 
@@ -220,7 +218,7 @@ rankDistribution (n0:ns)
     ++ concatMap ((True:) . flip replicate False) ns
   | otherwise = err "rankDistrubtion1: negative bin count"
 
--- | Reconstruct a distribution given \((n,k)\) and a rank.
+-- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
 unrankDistribution :: (Int, Int) -> Integer -> [Int]
 unrankDistribution (total,bins) i = go bs
   where
@@ -245,7 +243,7 @@ rankDistribution1 ns | all (>= 0) ns' = ((total+bins,bins),res)
     invalid = err $ "rankDistrubtion1: "
       ++ "all bins must have at least one element"
 
--- | Reconstruct a distribution given \((n,k)\) and a rank.
+-- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
 unrankDistribution1 :: (Int, Int) -> Integer -> [Int]
 unrankDistribution1 (total,bins) =
   fmap (+1) . unrankDistribution (total-bins,bins)
