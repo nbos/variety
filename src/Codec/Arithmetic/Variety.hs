@@ -47,8 +47,8 @@ encode = toBitVec . mconcat . fmap (uncurry mkValue)
 -- | Decode a bit vector given the same series of bases that was used to
 -- encode it. Throws an error if the given vector's size doesn't match
 -- the given bases.
-decode :: BitVec -> [Integer] -> [Integer]
-decode bv bases = case init $ scanr (*) 1 bases of -- last is 1
+decode :: [Integer] -> BitVec -> [Integer]
+decode bases bv = case init $ scanr (*) 1 bases of -- last is 1
   [] -> []
   (base:ns) -- base == product bases
     | len == expectedLen -> go (BV.toInteger bv) ns

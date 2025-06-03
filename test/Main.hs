@@ -166,7 +166,7 @@ prop_encode_decode_roundtrip pairs =
     let encoded = V.encode pairs
         bases = map snd pairs
         expected = map fst pairs
-        decoded = V.decode encoded bases
+        decoded = V.decode bases encoded
     in decoded === expected
 
 prop_encode1_decode1_roundtrip :: Integer -> Integer -> Property
@@ -182,5 +182,4 @@ prop_bounded_encode_decode_roundtrip prec pairs =
     let encoded = VB.encode prec pairs
         bases = map snd pairs
         expected = map fst pairs
-        decoded = VB.decode prec bases encoded
-    in decoded === expected
+    in VB.decode prec bases encoded === Just (expected, BV.empty)

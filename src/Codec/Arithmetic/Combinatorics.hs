@@ -171,7 +171,7 @@ unrankPermutation as index
     ns = fromIntegral <$> [n,n-1..1]
     base = factorial $ fromIntegral n
     bv = toBitVec $ mkValue index base
-    is = fromIntegral <$> decode bv ns
+    is = fromIntegral <$> decode ns bv
 
     -- | Successively delete elements at given indexes from a set
     go s [] = assert (S.null s) []

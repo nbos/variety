@@ -14,67 +14,61 @@ module Codec.Arithmetic.Variety.Bounded
   ) where
 
 import Data.Bits (Bits(bit))
+import Data.Bifunctor
 
-import Codec.Arithmetic.Variety (Value(fromValue), mkValue, toBitVec, decode1)
+import qualified Codec.Arithmetic.Variety as V
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 import qualified Codec.Arithmetic.Variety.BitVec as BV
 
 err :: String -> a
 err = error . ("Variety.Bounded: " ++)
 
+groupWithinPrec :: (a -> Integer) -> Int -> [a] -> [(Integer,[a])]
+groupWithinPrec getBase prec
+  | prec < 0 = err "negative precision"
+  | otherwise = ffmap reverse . go 1 []
+  where
+    maxBase = bit (prec*8 + 1) - 1 -- max val with `prec` bytes
+    go base group [] = filter (not . null . snd) [(base,group)]
+    go 1 group (a:as) = go (getBase a) (a:group) as
+    go base group (a:as)
+      | base' > maxBase = (base,group) : go b [a] as
+      | otherwise = go base' (a:group) as
+      where
+        b = getBase a
+        base' = base * b
+{-# INLINE groupWithinPrec #-}
+
 -- | Given a max precision in bytes, encode a series of value-base pairs
 -- into a single bit vector. Bases must be at least equal to @1@ and the
 -- associated values must exist in the range @[0..base-1]@.
 encode :: Int -> [(Integer,Integer)] -> BitVec
-encode prec ins | prec < 0 = err "Precision must be positive"
-                | otherwise = case vals of
-                                [] -> BV.empty
-                                (hd:tl) -> goFresh hd tl
+encode = mconcat
+         . fmap (V.encode . snd)
+         .: groupWithinPrec snd
+
+-- | Try to decode a sequence of values at the head of a bit vector
+-- given the same precision and list of bases that was used to encode
+-- it. If successful, returns the decoded values and the remainder of
+-- the `BitVec`, with the sequence's code removed. Returns @Nothing@ if
+-- the bit vector doesn't contain enough bits to define a value for each
+-- base given.
+decode :: Int -> [Integer] -> BitVec -> Maybe ([Integer], BitVec)
+decode = go .: groupWithinPrec id
   where
-    vals = uncurry mkValue <$> ins
-    tooBig v | (_,base) <- fromValue v = base >= bit (prec*8)
-
-    -- we don't multiply if a given base is already too big
-    goFresh acc [] = toBitVec acc
-    goFresh acc (v:vs)
-      | tooBig acc = toBitVec acc <> goFresh v vs
-      | otherwise = goAcc acc (v:vs)
-
-    goAcc acc [] = toBitVec acc
-    goAcc acc (v:vs)
-      | tooBig acc' = toBitVec acc <> goFresh v vs
-      | otherwise = goAcc acc' vs
+    go [] bv = Just ([],bv)
+    go ((base,bases):rest) bv | BV.length hd /= len = Nothing
+                              | otherwise = first (V.decode bases hd ++)
+                                            <$> go rest tl
       where
-        acc' = acc <> v
+        len = BV.bitLen (base - 1)
+        (hd,tl) = BV.splitAt len bv
 
--- | Decode a bit vector given the same precision and series of bases
--- that was used to encode it. Throws an error if the given vector's
--- size doesn't match the given parameters.
-decode :: Int -> [Integer] -> BitVec -> [Integer]
-decode prec | prec < 0 = err "Precision must be positive"
-            | otherwise = goFresh 1
-  where
-    tooBig = (>= bit (prec*8))
+(.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
+(.:) = (.).(.)
+infixr 8 .:
+{-# INLINE (.:) #-}
 
-    -- we don't multiply if a given base is already too big
-    goFresh _ [] bv | BV.null bv = []
-                    | otherwise = err $ "Bits left over after decoding: "
-                                  ++ show bv
-    goFresh acc (n:ns) bv
-      | tooBig acc =
-          let len = BV.bitLen (acc - 1)
-              (valBits, bv') = BV.splitAt len bv
-          in decode1 valBits : goFresh n ns bv'
-      | otherwise = goAcc acc (n:ns) bv
-
-    goAcc _ [] bv | BV.null bv = []
-                  | otherwise = err $ "Bits left over after decoding: "
-                                ++ show bv
-    goAcc acc (n:ns) bv
-      | tooBig acc' =
-          let len = BV.bitLen (acc - 1)
-              (valBits, bv') = BV.splitAt len bv
-          in decode1 valBits : goFresh n ns bv'
-      | otherwise = goAcc acc' ns bv
-      where
-        acc' = acc * n
+ffmap :: (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
+ffmap = fmap . fmap
+{-# INLINE ffmap #-}
