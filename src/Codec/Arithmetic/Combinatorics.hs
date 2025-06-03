@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 -- | Optimal codes for combinatorial objects.
 --
 -- The integer on which a combinatorial objects is mapped is typically
@@ -70,7 +71,7 @@ import Math.Combinatorics.Exact.Factorial (factorial)
 import Codec.Arithmetic.Variety (Value(fromValue), mkValue, toBitVec, decode)
 
 err :: String -> a
-err = error . ("Combinatorics: " ++)
+err = error . ("Combinatorics." ++)
 
 -- | Rank a multiset permutation. Returns the count of each element in
 -- the set, the rank and the total number of permutations with those
@@ -101,9 +102,13 @@ rankMultisetPermutation msp = ( M.toList counts
 
 -- | Reconstruct a multiset permutation, given the count of each element
 -- in the set and a rank.
-unrankMultisetPermutation :: (Show a, Ord a) => [(a,Int)] -> Integer -> [a]
-unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
+unrankMultisetPermutation :: Ord a => [(a,Int)] -> Integer -> [a]
+unrankMultisetPermutation l i0
+  | any ((< 0) . snd) l = err' "negative count"
+  | i0 < 0 || i0 >= coef0 = err' $ "out of bounds: " ++ show (i0,coef0)
+  | otherwise = go (fromIntegral total0) coef0 counts i0
   where
+    err' = err . ("unrankMultisetPermutation: " ++)
     counts = M.fromList $ filter ((> 0) . snd) l
     total0 = sum counts
     coef0 = factorial total0
@@ -119,20 +124,22 @@ unrankMultisetPermutation l = go (fromIntegral total0) coef0 counts
         m' = M.update (\n -> if n == 1 then Nothing else Just $ n - 1)
              a m
 
-        findBin _ [] = error "impossible"
-        findBin acc ((el,subCoef):ascs) | null ascs || acc' > i = (el, acc, subCoef)
-                                        | otherwise = findBin acc' ascs
+        findBin _ [] = err "impossible"
+        findBin acc ((el,subCoef):ascs)
+          | null ascs || acc' > i = (el, acc, subCoef)
+          | otherwise = findBin acc' ascs
           where acc' = acc + subCoef
 
 -- | Computes the multinomial coefficient.
 multinomial :: [Int] -> Integer
-multinomial ns = factorial (sum ns)
-                 `div` product (factorial <$> ns)
+multinomial ns | any (< 0) ns = 0
+               | otherwise = factorial (sum ns)
+                             `div` product (factorial <$> ns)
 
 -- | Rank a permutation. Returns the rank and the total number of
 -- permutations of sets with that size ( \(n!\) ).
 rankPermutation :: Ord a => [a] -> (Integer, Integer)
-rankPermutation p | length p /= n0 = err' "Not a list of unique elements"
+rankPermutation p | length p /= n0 = err' "not unique elements"
                   | otherwise = fromValue val
   where
     err' = err . ("rankPermutation: " ++)
@@ -153,17 +160,20 @@ rankPermutation p | length p /= n0 = err' "Not a list of unique elements"
 -- | Reconstruct a permutation given a set of elements and a rank. The
 -- order in which the elements of the set is given does not matter.
 unrankPermutation :: Ord a => [a] -> Integer -> [a]
-unrankPermutation as i0 | length as /= n0 = err' "Not a list of unique elements"
-                        | otherwise = go s0 is
+unrankPermutation as index
+  | length as /= n = err' "not unique elements"
+  | index < 0 || index >= base = err' $ "out of bounds" ++ show (index,base)
+  | otherwise = go set is
   where
     err' = err . ("unrankPermutation: " ++)
-    s0 = S.fromList as
-    n0 = S.size s0
-    ns = fromIntegral <$> [n0,n0-1..1]
-    bv = toBitVec $ mkValue i0 $ factorial $ fromIntegral n0
+    set = S.fromList as
+    n = S.size set
+    ns = fromIntegral <$> [n,n-1..1]
+    base = factorial $ fromIntegral n
+    bv = toBitVec $ mkValue index base
     is = fromIntegral <$> decode bv ns
 
-    -- | Iteratively extract elements at given indexes from a set
+    -- | Successively delete elements at given indexes from a set
     go s [] = assert (S.null s) []
     go s (i:rest) = S.elemAt i s : go (S.deleteAt i s)  rest
 
@@ -190,9 +200,14 @@ rankCombination c = ( (n0, k0)
 
 -- | Reconstruct a combination given parameters \((n,k)\) and a rank.
 unrankCombination :: (Int, Int) -> Integer -> [Bool]
-unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
-                            n0 `choose` k0
+unrankCombination nk@(n0,k0) i0
+  | k0 > n0 || k0 < 0 || n0 < 0 = err' $ "invalid parameters: " ++ show nk
+  | i0 < 0 || i0 > n0Ck0 = err' $ "out of range: " ++ show (i0,n0Ck0)
+  | otherwise = go (fromIntegral n0) (fromIntegral k0) n0Ck0 i0
+
   where
+    err' = err . ("unrankPermutation: " ++)
+    n0Ck0 = n0 `choose` k0
     go n k nCk i | n == 0 = []
                  | i < nCk0 = False : go (n-1) k nCk0 i
                  | otherwise = True : go (n-1) (k-1) nCk1 (i-nCk0)
@@ -202,7 +217,7 @@ unrankCombination (n0,k0) = go (fromIntegral n0) (fromIntegral k0) $
 
 -- | Computes the binomial coefficent given parameters \(n\) and \(k\).
 choose :: Int -> Int -> Integer
-choose n k | k > n = 0
+choose n k | denom == 0 = 0
            | otherwise = num `div` denom
   where num = factorial n
         denom = factorial k * factorial (n-k)
@@ -214,37 +229,54 @@ choose n k | k > n = 0
 rankDistribution :: [Int] -> ((Int, Int), (Integer, Integer))
 rankDistribution [] = ((0,0),(0,1))
 rankDistribution (n0:ns)
-  | n0 >= 0 && all (>= 0) ns =
-    rankCombination $ replicate n0 False -- 0s are stars, 1s are bars
-    ++ concatMap ((True:) . flip replicate False) ns
-  | otherwise = err "rankDistrubtion1: negative bin count"
+  | n0 < 0 || any (< 0) ns = err' "negative count"
+  | otherwise = ((bins,balls),(i,base))
+  where
+    err' = err . ("rankDistribution: " ++)
+    comb = replicate n0 False -- 0s are stars, 1s are bars
+           ++ concatMap ((True:) . flip replicate False) ns
+    ((n,k),(i,base)) = rankCombination comb
+    bins = k + 1
+    balls = n - bins + 1
 
 -- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
 unrankDistribution :: (Int, Int) -> Integer -> [Int]
-unrankDistribution (total,bins) i = go bs
+unrankDistribution (balls,bins) i
+  | balls < 0 || bins < 0 = err' $ "invalid parameters: " ++ show (balls,bins)
+  | i < 0 || i >= base = err' $ "out of range: " ++ show (i,base)
+  | bins == 0 = []
+  | otherwise = countGaps 0 bs
   where
-    n = total + bins - 1 -- 0s and 1s
-    k = bins - 1 -- number of 1s
+    err' = err . ("unrankDistribution: " ++)
+    n = balls + bins - 1 -- stars and bars
+    k = bins - 1 -- number of bars
+    base = if bins == 0 then 1 else n `choose` k
     bs = unrankCombination (n,k) i
 
-    go l | null l = []
-         | otherwise = length bin : go l'
-      where (bin,l') = break id l -- break on 1
+    countGaps !acc [] = [acc]
+    countGaps !acc (False:rest) = countGaps (acc + 1) rest
+    countGaps !acc (True:rest) = acc : countGaps 0 rest
 
 -- | Rank a non-empty distribution in the form of a list bin
 -- counts. Returns the \((n,k)\) parameters (where \(n\) is the total
 -- number of elements and \(k\) is the number of bins), the rank and the
 -- total number of distributions with those parameters.
 rankDistribution1 :: [Int] -> ((Int, Int), (Integer, Integer))
-rankDistribution1 ns | all (>= 0) ns' = ((total+bins,bins),res)
-                     | otherwise = invalid
+rankDistribution1 ns
+  | any (< 1) ns = if any (< 0) ns then err' "negative count"
+                   else err' "empty count"
+  | otherwise = ((balls,bins),(i,base))
   where
-    ns' = (+(-1)) <$> ns
-    ((total, bins), res) = rankDistribution ns'
-    invalid = err $ "rankDistrubtion1: "
-      ++ "all bins must have at least one element"
+    err' = err . ("rankDistribution1: " ++)
+    ((balls',bins),(i,base)) = rankDistribution $ (+(-1)) <$> ns
+    balls = balls' + bins
 
 -- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
 unrankDistribution1 :: (Int, Int) -> Integer -> [Int]
-unrankDistribution1 (total,bins) =
-  fmap (+1) . unrankDistribution (total-bins,bins)
+unrankDistribution1 (balls,bins) i
+  | balls < bins || bins < 0 =
+      err' $ "invalid parameters: " ++ show (balls,bins)
+  | otherwise = (+1) <$> unrankDistribution (balls',bins) i
+  where
+    err' = err . ("unrankDistribution1: " ++)
+    balls' = balls - bins

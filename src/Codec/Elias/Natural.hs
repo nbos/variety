@@ -38,14 +38,14 @@ import Data.Bifunctor (Bifunctor(first))
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 import qualified Codec.Elias as E
 
-err :: a
-err = error "Elias.Natural: negative number"
+boundsError :: a
+boundsError = error "Elias.Natural: negative number"
 
 -- | Encode a number in a Elias gamma code. Throws an error if the input
 -- is negative.
 encodeGamma :: Integer -> BitVec
 encodeGamma n | n >= 0 = E.encodeGamma (n+1)
-              | otherwise = err
+              | otherwise = boundsError
 
 -- | Try to decode an Elias gamma code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
@@ -58,7 +58,7 @@ decodeGamma = fmap (first (+(-1))) . E.decodeGamma
 -- is negative.
 encodeDelta :: Integer -> BitVec
 encodeDelta n | n >= 0 = E.encodeDelta (n+1)
-              | otherwise = err
+              | otherwise = boundsError
 
 -- | Try to decode an Elias delta code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
@@ -71,7 +71,7 @@ decodeDelta = fmap (first (+(-1))) . E.decodeDelta
 -- is negative.
 encodeOmega :: Integer -> BitVec
 encodeOmega n | n >= 0 = E.encodeOmega n
-              | otherwise = err
+              | otherwise = boundsError
 
 -- | Try to decode an Elias omega code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of

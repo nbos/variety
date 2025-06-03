@@ -35,14 +35,14 @@ import Data.Bifunctor (Bifunctor(first))
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 import qualified Codec.Arithmetic.Variety.BitVec as BV
 
-err :: a
-err = error "Elias: Number must be positive and non-zero"
+boundsError :: a
+boundsError = error "Elias: Number must be positive and non-zero"
 
 -- | Encode a number in a Elias gamma code. Throws an error if the input
 -- is not positive and non-zero.
 encodeGamma :: Integer -> BitVec
 encodeGamma x | x > 0 = BV.replicate n False <> xBits
-              | otherwise = err
+              | otherwise = boundsError
   where
     xBits = BV.fromInteger x
     n = BV.length xBits - 1
@@ -65,7 +65,7 @@ decodeGamma bv | BV.length xBits /= xLen = Nothing
 -- is not positive and non-zero.
 encodeDelta :: Integer -> BitVec
 encodeDelta x | x > 0 = encodeGamma (fromIntegral xLen) <> tailBits
-              | otherwise = err
+              | otherwise = boundsError
   where
     xBits = BV.fromInteger x
     xLen = BV.length xBits
@@ -89,7 +89,7 @@ decodeDelta bv = do
 -- is not positive and non-zero.
 encodeOmega :: Integer -> BitVec
 encodeOmega x0 | x0 > 0 = go x0 eom
-               | otherwise = err
+               | otherwise = boundsError
   where
     eom = BV.bitVec 1 0 -- "0"
 
