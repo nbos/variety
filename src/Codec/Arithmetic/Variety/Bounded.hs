@@ -10,11 +10,11 @@
 -- 16GiB (or a little over 17GB) on the size of `Integer` values.
 module Codec.Arithmetic.Variety.Bounded
   ( encode
+  , codeLen
   , decode
   ) where
 
 import Data.Bits (Bits(bit))
-import Data.Bifunctor
 
 import qualified Codec.Arithmetic.Variety as V
 import Codec.Arithmetic.Variety.BitVec (BitVec)
@@ -47,19 +47,27 @@ encode = mconcat
          . fmap (V.encode . snd)
          .: groupWithinPrec snd
 
+-- | Return the length of the code of a sequence of values in the given
+-- precision and list of bases in bits.
+codeLen :: Int -> [Integer] -> Int
+codeLen = fromIntegral
+          . sum
+          . fmap (V.codeLen1 . fst)
+          .: groupWithinPrec id
+
 -- | Try to decode a sequence of values at the head of a bit vector
 -- given the same precision and list of bases that was used to encode
 -- it. If successful, returns the decoded values and the remainder of
--- the `BitVec`, with the sequence's code removed. Returns @Nothing@ if
--- the bit vector doesn't contain enough bits to define a value for each
--- base given.
-decode :: Int -> [Integer] -> BitVec -> Maybe ([Integer], BitVec)
+-- the `BitVec`, with the sequence's code removed. Throws an error if
+-- the given vector's size doesn't match the given bases.
+decode :: Int -> [Integer] -> BitVec -> [Integer]
 decode = go .: groupWithinPrec id
   where
-    go [] bv = Just ([],bv)
-    go ((base,bases):rest) bv | BV.length hd /= len = Nothing
-                              | otherwise = first (V.decode bases hd ++)
-                                            <$> go rest tl
+    go [] bv | not (BV.null bv) = err "decode: too many bits"
+             | otherwise = []
+    go ((base,bases):rest) bv
+      | BV.length hd /= len = err "decode: not enough bits"
+      | otherwise = V.decode bases hd ++ go rest tl
       where
         len = BV.bitLen (base - 1)
         (hd,tl) = BV.splitAt len bv

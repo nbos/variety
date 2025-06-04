@@ -182,4 +182,5 @@ prop_bounded_encode_decode_roundtrip prec pairs =
     let encoded = VB.encode prec pairs
         bases = map snd pairs
         expected = map fst pairs
-    in VB.decode prec bases encoded === Just (expected, BV.empty)
+        decoded = VB.decode prec bases encoded
+    in decoded === expected

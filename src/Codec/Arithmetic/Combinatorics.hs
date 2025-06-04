@@ -68,7 +68,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Math.Combinatorics.Exact.Factorial (factorial)
 
-import Codec.Arithmetic.Variety (Value(fromValue), mkValue, toBitVec, decode)
+import qualified Codec.Arithmetic.Variety as V
 
 err :: String -> a
 err = error . ("Combinatorics." ++)
@@ -140,7 +140,7 @@ multinomial ns | any (< 0) ns = 0
 -- permutations of sets with that size ( \(n!\) ).
 rankPermutation :: Ord a => [a] -> (Integer, Integer)
 rankPermutation p | length p /= n0 = err' "not unique elements"
-                  | otherwise = fromValue val
+                  | otherwise = V.fromValue val
   where
     err' = err . ("rankPermutation: " ++)
     s0 = S.fromList p
@@ -149,7 +149,7 @@ rankPermutation p | length p /= n0 = err' "not unique elements"
     is = fromIntegral <$> go s0 p
     val = assert (length is == length ns)
           mconcat $
-          zipWith mkValue is ns
+          zipWith V.mkValue is ns
 
     -- | Lookup element index in the set of remaining elements
     go s [] = assert (S.null s) []
@@ -170,8 +170,8 @@ unrankPermutation as index
     n = S.size set
     ns = fromIntegral <$> [n,n-1..1]
     base = factorial $ fromIntegral n
-    bv = toBitVec $ mkValue index base
-    is = fromIntegral <$> decode ns bv
+    bv = V.toBitVec $ V.mkValue index base
+    is = fromIntegral <$> V.decode ns bv
 
     -- | Successively delete elements at given indexes from a set
     go s [] = assert (S.null s) []

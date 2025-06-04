@@ -11,38 +11,40 @@
 -- whole code with infinite precision. For an codec with finite
 -- precision, see the @Variety.Bounded@ module.
 module Codec.Arithmetic.Variety
-  ( -- * Codec
+  ( -- * Value-base Interface
 
     encode
+  , codeLen
   , decode
   , encode1
+  , codeLen1
   , decode1
 
-  -- * Value Interface
+  -- * Value Type
 
   , Value(..)
   , mkValue
   , toBitVec
   , compose
   , maxValue
-  , codeLen
   ) where
 
 import Codec.Arithmetic.Variety.BitVec (BitVec, bitVec)
 import qualified Codec.Arithmetic.Variety.BitVec as BV
 
 err :: String -> a
-err = error . ("Variety: " ++)
+err = error . ("Variety." ++)
 
-(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
-(.:) = (.) . (.)
-infixr 8 .:
-
--- | Encode a series of value-base pairs into a single bit vector. Bases
--- must be at least equal to @1@ and the associated values must exist in
--- the range @[0..base-1]@.
+-- | Encode a series of value-base pairs into a single bit vector. A
+-- base must be at least equal to @1@ and the associated value must
+-- exist in the range @[0..base-1]@.
 encode :: [(Integer,Integer)] -> BitVec
 encode = toBitVec . mconcat . fmap (uncurry mkValue)
+
+-- | Return the length of the code of a sequence of values in the given
+-- list of bases in bits.
+codeLen :: [Integer] -> Int
+codeLen = codeLen1 . product
 
 -- | Decode a bit vector given the same series of bases that was used to
 -- encode it. Throws an error if the given vector's size doesn't match
@@ -50,17 +52,13 @@ encode = toBitVec . mconcat . fmap (uncurry mkValue)
 decode :: [Integer] -> BitVec -> [Integer]
 decode bases bv = case init $ scanr (*) 1 bases of -- last is 1
   [] -> []
-  (base:ns) -- base == product bases
-    | len == expectedLen -> go (BV.toInteger bv) ns
-    | otherwise ->
-        err $ "Bit vector incompatible with provided list of bases: "
-        ++ show (bv, bases) ++ "\nVector has " ++ show len
-        ++ " bits while the bases make for a " ++ show expectedLen
-        ++ " bit message."
+  (base:ns) -> case compare len expectedLen of -- base == product bases
+    EQ -> go (BV.toInteger bv) ns
+    LT -> err "decode: not enough bits"
+    GT -> err "decode: too many bits"
     where
       len = BV.length bv
-      expectedLen = BV.bitLen (base - 1)
-
+      expectedLen = codeLen1 base
   where
     go i [] = [i]
     go i2 (n1:ns) = i0 : go i1 ns
@@ -71,13 +69,19 @@ decode bases bv = case init $ scanr (*) 1 bases of -- last is 1
 encode1 :: Integer -> Integer -> BitVec
 encode1 = toBitVec .: mkValue
 
+-- | Return the length of the code of a single value in the given base
+-- in bits.
+codeLen1 :: Integer -> Int
+codeLen1 n | n < 1 = err "codeLen: base must be positive and non-zero"
+           | otherwise = BV.bitLen $ n - 1
+
 -- | Recover the value from a bit vector.
 decode1 :: BitVec -> Integer
 decode1 = BV.toInteger
 
----------------------
--- VALUE INTERFACE --
----------------------
+----------------
+-- VALUE TYPE --
+----------------
 
 -- | A value with its base, or the number of possible values that could
 -- be (i.e. radix, or
@@ -93,7 +97,7 @@ newtype Value = Value {
 -- negative or if the value is not strictly less than the base.
 mkValue :: Integer -> Integer -> Value
 mkValue i n | 0 <= i && i < n = Value (i,n)
-            | otherwise = err $ "Value is out of bounds: " ++ show (i,n)
+            | otherwise = err $ "mkValue: out of bounds: " ++ show (i,n)
 
 instance Semigroup Value where
   (<>) :: Value -> Value -> Value
@@ -115,11 +119,12 @@ compose (Value (i0,n0)) (Value (i1,n1)) = Value (i2, n2)
 maxValue :: Value -> Integer
 maxValue = (+(-1)) . snd . fromValue
 
--- | Length of the binary expansion of any value with this base.
-codeLen :: Value -> Int
-codeLen = BV.bitLen . maxValue
-
 -- | Drop the base and consider the value as a bit vector. The base
 -- conceptually rounds to the next power of 2.
 toBitVec :: Value -> BitVec
-toBitVec v@(Value (i,_)) = bitVec (codeLen v) i
+toBitVec (Value (i,n)) = bitVec (codeLen1 n) i
+
+(.:) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(.:) = (.) . (.)
+infixr 8 .:
+{-# INLINE (.:) #-}
