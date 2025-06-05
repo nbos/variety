@@ -3,19 +3,31 @@ name:               variety
 version:            0.1.0.0
 synopsis:           integer arithmetic codes
 
-description:        The @Variety@ module provides functions to optimally encode and decode sequences
-                    of value-base pairs assuming uniform probability.
+description: The
+                    [Variety](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Variety.html)
+                    module provides functions to optimally encode and
+                    decode sequences of value-base pairs assuming
+                    uniform probability.
 
-                    If codes get too large and slow to process, @Variety.Bounded@ provides similar
-                    interface with a precision parameter at small cost to code length.
+                    If codes get too large and slow to process,
+                    [Variety.Bounded](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Variety-Bounded.html)
+                    provides similar interface with a precision
+                    parameter at small cost to code length.
 
-                    The @Combinatorics@ module provides functions to optimally encode and decode
-                    common combinatorial objects through ranking and unranking.
+                    The
+                    [Combinatorics](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Combinatorics.html)
+                    module provides functions to optimally encode and
+                    decode common combinatorial objects through ranking
+                    and unranking.
 
-                    The @Elias@ module provides entirely non-parametric encoding and decoding of
-                    positive integers. The usual definition doesn't allow for an encoding of 0, so a
-                    mapping is baked into the functions in @Elias.Natural@ that shifts the number line
-                    by 1.
+                    The
+                    [Elias](https://hackage-content.haskell.org/package/variety/docs/Codec-Elias.html)
+                    module provides entirely non-parametric encoding and
+                    decoding of positive integers. The usual definition
+                    doesn't allow for an encoding of 0, so a mapping is
+                    baked into the functions in
+                    [Elias.Natural](https://hackage-content.haskell.org/package/variety-0.1.0.0/docs/Codec-Elias-Natural.html)
+                    that shifts the number line by 1.
 
 license:            MIT
 license-file:       LICENSE
