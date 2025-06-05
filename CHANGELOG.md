@@ -1,5 +1,9 @@
 # Revision history for variety
 
+## 0.1.0.2 -- 2025-06-05
+
+* Improved documentation
+
 ## 0.1.0.1 -- 2025-06-05
 
 * Removed dependency on extra
