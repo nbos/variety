@@ -42,7 +42,6 @@ import Data.Bits ((.&.),(.|.))
 import qualified Data.Bits as Bits
 import Data.Word (Word8)
 import qualified Data.List as L
-import qualified Data.List.Extra as L
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 
@@ -89,11 +88,15 @@ fromBytes = fromBits . concatMap unpack8bits . BS.unpack
 -- the length is not a multiple of 8.
 toBytes :: BitVec -> ByteString
 toBytes v@(BitVec len _) = BS.pack $ fmap pack8bits $
-                           L.chunksOf 8 $ pad ++ toBits v
+                           chunksOf 8 $ pad ++ toBits v
   where
     padLen = (-len) `mod` 8
     pad = assert ((len + padLen) `mod` 8 == 0) $
           L.replicate padLen False
+
+    chunksOf _ [] = []
+    chunksOf i xs = a : chunksOf i b
+      where (a,b) = L.splitAt i xs
 
 -- | Read bits from the binary representation of an @Integer@. This
 -- excludes the possibility of any leading zeros. Use `bitVec` for more
@@ -177,13 +180,13 @@ countLeadingZeros (BitVec len int) = len - intLen
   where intLen = bitLen int
 
 -- | Returns the value of a bit at a given index, with @0@ being the
--- index of the most significant bit.
+-- index of the most significant (left-most) bit.
 (!!) :: BitVec -> Int -> Bool
 (BitVec len int) !! i = Bits.testBit int (len - i - 1)
 infixl 9 !!
 
 -- | Returns the value of a bit at a given index if within bounds, with
--- @0@ being the index of the most significant bit.
+-- @0@ being the index of the most significant (left-most) bit.
 (!?) :: BitVec -> Int -> Maybe Bool
 (BitVec len int) !? i
   | i < 0 || i >= len = Nothing

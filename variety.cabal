@@ -31,7 +31,7 @@ tested-with:        GHC==9.4.8, GHC==9.6.7, GHC==9.8.4, GHC==9.10.1, GHC==9.12.2
 source-repository head
     type: git
     location: https://github.com/nbos/variety
-                    
+
 common warnings
     ghc-options: -Wall
 
@@ -50,8 +50,6 @@ library
                     , bytestring >= 0.11.5 && < 0.13
                     , containers >= 0.6.7 && < 0.8
                     , exact-combinatorics >= 0.2.0 && < 0.3
-                    , extra >= 1.8 && < 1.9
-
 
     hs-source-dirs:   src
     default-language: Haskell2010
@@ -69,4 +67,3 @@ test-suite variety-test
         variety,
         QuickCheck,
         HUnit
-
