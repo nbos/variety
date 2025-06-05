@@ -1,9 +1,9 @@
--- | Elias codes are prefix codes for positive, non-zero integers with
--- no prior assumption to their size.
+-- | [Elias codes](https://en.wikipedia.org/wiki/Elias_coding) are
+-- prefix codes for positive, non-zero integers with no assumption or
+-- limit to their size.
 --
--- To allow for encoding zero, functions of this module add @1@ at
--- encoding time and subtract @1@ at decoding time to support any
--- natural number.
+-- Functions of this module add @1@ at encoding time and subtract @1@ at
+-- decoding time to support any natural number, including zero.
 module Codec.Elias.Natural
     ( -- * Gamma coding
 
@@ -26,9 +26,9 @@ module Codec.Elias.Natural
     -- * Omega coding
 
     -- | An Elias omega code is the result of recursively encoding the
-    -- length of binary expansions until a length of @1@ is
-    -- reached. Since binary expansions are written without any leading
-    -- zeros, a single @0@ bit marks the end of the code.
+    -- length of binary expansions in the prefix until a length of @1@
+    -- is reached. Since binary expansions are written without any
+    -- leading zeros, a single @0@ bit marks the end of the code.
 
     , encodeOmega
     , decodeOmega

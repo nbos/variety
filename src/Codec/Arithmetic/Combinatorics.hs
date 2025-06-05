@@ -14,8 +14,7 @@ module Codec.Arithmetic.Combinatorics
     -- more than once. The number of such permutations is equal to the
     -- multinomial coefficient with the same parameters: \[ {n \choose
     -- k_{1}, k_{2}, \ldots, k_{m}} = \frac{n!}{k_{1}! k_{2}! \cdots
-    -- k_{m}!} \] This is the most general definition in this module,
-    -- of which all following objects are special cases.
+    -- k_{m}!} ~~~~~\mathrm{where}~~~~~ n = \sum_i k_i \]
 
     rankMultisetPermutation
   , unrankMultisetPermutation
@@ -24,8 +23,8 @@ module Codec.Arithmetic.Combinatorics
   -- * Permutations
 
   -- | A [permutation](https://en.wikipedia.org/wiki/Permutation) is an
-  -- ordering of all the objects of a set. The number of permutations of
-  -- a set of \(n\) elements is \(n!\).
+  -- ordering of the objects of a set of distinct elements. The number
+  -- of permutations of a set of \(n\) elements is \(n!\).
 
   , rankPermutation
   , unrankPermutation
@@ -44,7 +43,7 @@ module Codec.Arithmetic.Combinatorics
   -- * Distributions
 
   -- | A distribution (usually discussed under the name [stars and
-  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics\))
+  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics\)))
   -- is a way to distribute \(n\) equal elements (stars) among \(k\)
   -- bins (i.e. \(k-1\) bars ).
 
@@ -130,7 +129,7 @@ unrankMultisetPermutation l i0
           | otherwise = findBin acc' ascs
           where acc' = acc + subCoef
 
--- | Computes the multinomial coefficient.
+-- | Computes the multinomial coefficient given a list of counts \(k_i\).
 multinomial :: [Int] -> Integer
 multinomial ns | any (< 0) ns = 0
                | otherwise = factorial (sum ns)

@@ -11,14 +11,14 @@ description: The
 
                     If codes get too large and slow to process,
                     [Variety.Bounded](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Variety-Bounded.html)
-                    provides similar interface with a precision
+                    provides a similar interface with a precision
                     parameter at small cost to code length.
 
                     The
                     [Combinatorics](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Combinatorics.html)
                     module provides functions to optimally encode and
-                    decode common combinatorial objects through ranking
-                    and unranking.
+                    decode (rank and unrank) common combinatorial
+                    objects.
 
                     The
                     [Elias](https://hackage-content.haskell.org/package/variety/docs/Codec-Elias.html)
