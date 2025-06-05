@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               variety
-version:            0.1.0.0
+version:            0.1.0.1
 synopsis:           integer arithmetic codes
 
 description: The
@@ -26,7 +26,7 @@ description: The
                     decoding of positive integers. The usual definition
                     doesn't allow for an encoding of 0, so a mapping is
                     baked into the functions in
-                    [Elias.Natural](https://hackage-content.haskell.org/package/variety-0.1.0.0/docs/Codec-Elias-Natural.html)
+                    [Elias.Natural](https://hackage-content.haskell.org/package/variety/docs/Codec-Elias-Natural.html)
                     that shifts the number line by 1.
 
 license:            MIT
