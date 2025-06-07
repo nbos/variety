@@ -8,7 +8,7 @@
 -- difference with typical [arithmetic
 -- coding](https://en.wikipedia.org/wiki/Arithmetic_coding) on a
 -- rational number code is that for each operation, we operate on the
--- whole code with infinite precision. For an codec with finite
+-- whole code with infinite precision. For a codec with finite
 -- precision, see the
 -- [Variety.Bounded](https://hackage-content.haskell.org/package/variety/docs/Codec-Arithmetic-Variety-Bounded.html)
 -- module.

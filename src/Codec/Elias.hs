@@ -13,14 +13,14 @@ module Codec.Elias
       --
       -- For example, while the binary expansion of @21@ is:
       --
-      -- > import qualified Codec.Arithmetic.Variety.BitVec as BV
-      -- > BV.toString $ BV.fromInteger 21
-      -- > "10101"
+      -- >>> import qualified Codec.Arithmetic.Variety.BitVec as BV
+      -- >>> BV.toString $ BV.fromInteger 21
+      -- "10101"
       --
       -- its Elias code is:
       --
-      -- > BV.toString $ enodeGamma 21
-      -- > "000010101"
+      -- >>> BV.toString $ enodeGamma 21
+      -- "000010101"
       --
       -- where an expansion of \(i\) is always preceeded by \(i-1\)
       -- zeros.
@@ -34,25 +34,22 @@ module Codec.Elias
     -- length is itself coded like a gamma code instead of simply a
     -- unary encoding.
     --
-    -- For example:
+    -- For example, the binary expansion of \(1\,000\,000\)
     --
-    -- > BV.toString $ BV.fromInteger (10^6)
-    -- > "11110100001001000000"
-    -- >
-    -- > length "11110100001001000000"
-    -- > 20
+    -- >>> BV.toString $ BV.fromInteger (10^6)
+    -- "11110100001001000000"
+    -- >>> length "11110100001001000000"
+    -- 20
     --
     -- is prefixed with the gamma encoding of @20@ and loses its leading
-    -- bit which begins every binary expansion:
+    -- bit (which begins every binary expansion):
     --
-    -- > BV.toString <$> [encodeGamma 20, BV.fromInteger (10^6)]
-    -- > ["000010100","11110100001001000000"]
-    -- >
-    -- > BV.toString $ encodeDelta 1000000
-    -- > "0000101001110100001001000000"
-    -- >
-    -- > length "0000101001110100001001000000"
-    -- > 28
+    -- >>> BV.toString <$> [encodeGamma 20, BV.fromInteger (10^6)]
+    -- ["000010100","11110100001001000000"]
+    -- >>> BV.toString $ encodeDelta 1000000
+    -- "0000101001110100001001000000"
+    -- >>> length "0000101001110100001001000000"
+    -- 28
 
     , encodeDelta
     , decodeDelta
@@ -66,20 +63,17 @@ module Codec.Elias
     --
     -- For example:
     --
-    -- > BV.toString . BV.fromInteger <$> [2,4,19,10^6]
-    -- > ["10","100","10011","11110100001001000000"]
-    -- >
-    -- > length <$> ["10","100","10011","11110100001001000000"]
-    -- > [2,3,5,20]
-    -- >
-    -- > BV.toString $ encodeOmega (10^6)
-    -- > "1010010011111101000010010000000"
-    -- >
-    -- > length $ "1010010011111101000010010000000"
-    -- > 31
+    -- >>> BV.toString . BV.fromInteger <$> [2,4,19,10^6]
+    -- ["10","100","10011","11110100001001000000"]
+    -- >>> length <$> ["10","100","10011","11110100001001000000"]
+    -- [2,3,5,20]
+    -- >>> BV.toString $ encodeOmega (10^6)
+    -- "1010010011111101000010010000000"
+    -- >>> length $ "1010010011111101000010010000000"
+    -- 31
     --
     -- Notice that, while /asymptotically/ more efficient, omega codes
-    -- are longer than delta codes until around 1 googol, or @10^100@.
+    -- are longer than delta codes until around 1 googol, or \(10^{100}\).
 
     , encodeOmega
     , decodeOmega

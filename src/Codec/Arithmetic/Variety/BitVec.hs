@@ -208,7 +208,10 @@ unpack8bits w = Bits.testBit w <$> [7,6,5,4,3,2,1,0]
 
 -- | The number of bits in the binary expansion of a positive
 -- integer. For consistency with inductive definitions, leading zeros
--- are not considered and so @`bitLen` 0 == 0@.
+-- are not considered and so:
+--
+-- >>> bitLen 0
+-- 0
 bitLen :: Integer -> Int
 bitLen 0 = 0
 bitLen n = fromIntegral (integerLog2 n) + 1
