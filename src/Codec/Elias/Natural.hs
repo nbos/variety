@@ -1,6 +1,13 @@
 -- | [Elias codes](https://en.wikipedia.org/wiki/Elias_coding) are
 -- prefix codes for positive, non-zero integers with no assumption or
--- limit to their size.
+-- limit to their size. For completeness, gamma, delta and omega codes
+-- are implemented although for most applications you can get away with
+-- only using delta codes:
+--
+-- - Gamma codes are 1 bit more efficient than delta codes for certain
+--   numbers between 0 and 14.
+-- - Omega codes only become shorter than delta codes for numbers above
+--   1 googol, or \(10^{100}\).
 --
 -- Functions of this module add @1@ at encoding time and subtract @1@ at
 -- decoding time to support any natural number, including zero.
@@ -17,8 +24,8 @@ module Codec.Elias.Natural
     -- * Delta coding
 
     -- | An Elias delta code is like an Elias gamma code except that the
-    -- length is itself coded like a gamma code instead of simply a
-    -- unary encoding.
+    -- length is itself coded like a gamma code instead of a unary
+    -- encoding.
 
     , encodeDelta
     , decodeDelta

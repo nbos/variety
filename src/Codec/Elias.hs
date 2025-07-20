@@ -1,6 +1,13 @@
 -- | [Elias codes](https://en.wikipedia.org/wiki/Elias_coding) are
 -- prefix codes for positive, non-zero integers with no assumption or
--- limit to their size.
+-- limit to their size. For completeness, gamma, delta and omega codes
+-- are implemented although for most applications you can get away with
+-- only using delta codes:
+--
+-- - Gamma codes are 1 bit more efficient than delta codes for certain
+--   numbers between 1 and 15.
+-- - Omega codes only become shorter than delta codes for numbers above
+--   1 googol, or \(10^{100}\).
 --
 -- For codes that include the value @0@, see
 -- [Elias.Natural](https://hackage-content.haskell.org/package/variety/docs/Codec-Elias-Natural.html).
@@ -31,8 +38,8 @@ module Codec.Elias
     -- * Delta coding
 
     -- | An Elias delta code is like an Elias gamma code except that the
-    -- length is itself coded like a gamma code instead of simply a
-    -- unary encoding.
+    -- length is itself coded like a gamma code instead of a unary
+    -- encoding.
     --
     -- For example, the binary expansion of \(1\,000\,000\)
     --
@@ -72,8 +79,8 @@ module Codec.Elias
     -- >>> length $ "1010010011111101000010010000000"
     -- 31
     --
-    -- Notice that, while /asymptotically/ more efficient, omega codes
-    -- are longer than delta codes until around 1 googol, or \(10^{100}\).
+    -- Note that, while /asymptotically/ more efficient, omega codes are
+    -- longer than delta codes until around 1 googol, or \(10^{100}\).
 
     , encodeOmega
     , decodeOmega
