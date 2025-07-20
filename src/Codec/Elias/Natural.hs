@@ -49,8 +49,8 @@ encodeGamma n | n >= 0 = E.encodeGamma (n+1)
 
 -- | Try to decode an Elias gamma code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeGamma :: BitVec -> Maybe (Integer, BitVec)
 decodeGamma = fmap (first (+(-1))) . E.decodeGamma
 
@@ -62,8 +62,8 @@ encodeDelta n | n >= 0 = E.encodeDelta (n+1)
 
 -- | Try to decode an Elias delta code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeDelta :: BitVec -> Maybe (Integer, BitVec)
 decodeDelta = fmap (first (+(-1))) . E.decodeDelta
 
@@ -75,7 +75,7 @@ encodeOmega n | n >= 0 = E.encodeOmega n
 
 -- | Try to decode an Elias omega code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeOmega :: BitVec -> Maybe (Integer, BitVec)
 decodeOmega = fmap (first (+(-1))) . E.decodeOmega

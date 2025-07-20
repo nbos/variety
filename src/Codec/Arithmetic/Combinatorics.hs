@@ -170,7 +170,7 @@ unrankPermutation as index
     ns = fromIntegral <$> [n,n-1..1]
     base = factorial $ fromIntegral n
     bv = V.toBitVec $ V.mkValue index base
-    is = fromIntegral <$> V.decode ns bv
+    is = fromIntegral <$> fst (fromJust $ V.decode ns bv)
 
     -- | Successively delete elements at given indexes from a set
     go s [] = assert (S.null s) []

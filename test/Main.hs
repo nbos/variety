@@ -167,14 +167,14 @@ prop_encode_decode_roundtrip pairs =
         bases = map snd pairs
         expected = map fst pairs
         decoded = V.decode bases encoded
-    in decoded === expected
+    in decoded === Just (expected, BV.empty)
 
 prop_encode1_decode1_roundtrip :: Integer -> Integer -> Property
 prop_encode1_decode1_roundtrip value base =
   value >= 0 && value < base && base >= 1 ==>
     let encoded = V.encode1 value base
-        decoded = V.decode1 encoded
-    in decoded === value
+        decoded = V.decode1 base encoded
+    in decoded === Just (value, BV.empty)
 
 prop_bounded_encode_decode_roundtrip :: Int -> [(Integer, Integer)] -> Property
 prop_bounded_encode_decode_roundtrip prec pairs =
@@ -183,4 +183,4 @@ prop_bounded_encode_decode_roundtrip prec pairs =
         bases = map snd pairs
         expected = map fst pairs
         decoded = VB.decode prec bases encoded
-    in decoded === expected
+    in decoded === Just (expected, BV.empty)

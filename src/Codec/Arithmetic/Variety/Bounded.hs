@@ -15,14 +15,17 @@ module Codec.Arithmetic.Variety.Bounded
   ) where
 
 import Data.Bits (Bits(bit))
+import Data.Bifunctor (Bifunctor(first))
 
 import qualified Codec.Arithmetic.Variety as V
 import Codec.Arithmetic.Variety.BitVec (BitVec)
-import qualified Codec.Arithmetic.Variety.BitVec as BV
 
 err :: String -> a
 err = error . ("Variety.Bounded: " ++)
 
+-- | Given a base getter function and precision, chunk the values into
+-- lists that do not exceed the given precision or are singleton lists,
+-- annotated with the total base for each chunk.
 groupWithinPrec :: (a -> Integer) -> Int -> [a] -> [(Integer,[a])]
 groupWithinPrec getBase prec
   | prec < 0 = err "negative precision"
@@ -55,22 +58,18 @@ codeLen = fromIntegral
           . fmap (V.codeLen1 . fst)
           .: groupWithinPrec id
 
--- | Try to decode a sequence of values at the head of a bit vector
--- given the same precision and list of bases that was used to encode
--- it. If successful, returns the decoded values and the remainder of
--- the `BitVec`, with the sequence's code removed. Throws an error if
--- the given vector's size doesn't match the given bases.
-decode :: Int -> [Integer] -> BitVec -> [Integer]
+-- | Try to decode the head of a bit vector given the same precision and
+-- series of bases that was used to encode. If successful, returns the
+-- decoded values and the remainder of the `BitVec` with the values'
+-- code removed. Returns @Nothing@ if the bit vector doesn't contain
+-- enough bits to specify values for each given base.
+decode :: Int -> [Integer] -> BitVec -> Maybe ([Integer], BitVec)
 decode = go .: groupWithinPrec id
   where
-    go [] bv | not (BV.null bv) = err "decode: too many bits"
-             | otherwise = []
-    go ((base,bases):rest) bv
-      | BV.length hd /= len = err "decode: not enough bits"
-      | otherwise = V.decode bases hd ++ go rest tl
-      where
-        len = BV.bitLen (base - 1)
-        (hd,tl) = BV.splitAt len bv
+    go [] bv = Just ([], bv)
+    go ((_,bases):rest) bv = do
+      (vals, bv') <- V.decode bases bv
+      first (vals ++) <$> go rest bv'
 
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
 (.:) = (.).(.)

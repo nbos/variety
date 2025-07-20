@@ -98,8 +98,8 @@ encodeGamma x | x > 0 = BV.replicate n False <> xBits
 
 -- | Try to decode an Elias gamma code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeGamma :: BitVec -> Maybe (Integer, BitVec)
 decodeGamma bv | BV.length xBits /= xLen = Nothing
                | otherwise = Just (x, bv'')
@@ -123,8 +123,8 @@ encodeDelta x | x > 0 = encodeGamma (fromIntegral xLen) <> tailBits
 
 -- | Try to decode an Elias delta code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeDelta :: BitVec -> Maybe (Integer, BitVec)
 decodeDelta bv = do
   (xLen, bv') <- first fromIntegral <$> decodeGamma bv
@@ -150,8 +150,8 @@ encodeOmega x0 | x0 > 0 = go x0 eom
 
 -- | Try to decode an Elias omega code at the head of the given bit
 -- vector. If successful, returns the decoded value and the remainder of
--- the `BitVec`, with the value code removed. Returns @Nothing@ if the
--- bit vector doesn't contain enough bits to define a number.
+-- the `BitVec` with the value's code removed. Returns @Nothing@ if the
+-- bit vector doesn't contain enough bits to specify a number.
 decodeOmega :: BitVec -> Maybe (Integer, BitVec)
 decodeOmega = go 1
   where

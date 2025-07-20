@@ -48,19 +48,20 @@ encode = toBitVec . mconcat . fmap (uncurry mkValue)
 codeLen :: [Integer] -> Int
 codeLen = codeLen1 . product
 
--- | Decode a bit vector given the same series of bases that was used to
--- encode it. Throws an error if the given vector's size doesn't match
--- the given bases.
-decode :: [Integer] -> BitVec -> [Integer]
+-- | Try to decode the head of a bit vector given the same series of
+-- bases that was used to encode. If successful, returns the decoded
+-- values and the remainder of the `BitVec` with the values' code
+-- removed. Returns @Nothing@ if the bit vector doesn't contain enough
+-- bits to specify values for each given base.
+decode :: [Integer] -> BitVec -> Maybe ([Integer], BitVec)
 decode bases bv = case init $ scanr (*) 1 bases of -- last is 1
-  [] -> []
-  (base:ns) -> case compare len expectedLen of -- base == product bases
-    EQ -> go (BV.toInteger bv) ns
-    LT -> err "decode: not enough bits"
-    GT -> err "decode: too many bits"
+  [] -> Just ([], bv)
+  (base:ns) | BV.length bv0 < len -> Nothing
+            | otherwise -> Just ( go (BV.toInteger bv0) ns
+                                , bv1 )
     where
-      len = BV.length bv
-      expectedLen = codeLen1 base
+      len = codeLen1 base -- base == product bases
+      (bv0,bv1) = BV.splitAt len bv
   where
     go i [] = [i]
     go i2 (n1:ns) = i0 : go i1 ns
@@ -78,8 +79,12 @@ codeLen1 n | n < 1 = err "codeLen: base must be positive and non-zero"
            | otherwise = BV.bitLen $ n - 1
 
 -- | Recover the value from a bit vector.
-decode1 :: BitVec -> Integer
-decode1 = BV.toInteger
+decode1 :: Integer -> BitVec -> Maybe (Integer, BitVec)
+decode1 base bv | BV.length bv0 < len = Nothing
+                | otherwise = Just (BV.toInteger bv0, bv1)
+  where
+    len = codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
 
 ----------------
 -- VALUE TYPE --
@@ -109,8 +114,8 @@ instance Monoid Value where
   mempty :: Value
   mempty = Value (0,1)
 
--- | Compose two values into a value of a greater base. This is
--- associative, but not commutative.
+-- | Compose two values into a value of a greater base. Associative, not
+-- commutative.
 compose :: Value -> Value -> Value
 compose (Value (i0,n0)) (Value (i1,n1)) = Value (i2, n2)
   where
@@ -121,8 +126,8 @@ compose (Value (i0,n0)) (Value (i1,n1)) = Value (i2, n2)
 maxValue :: Value -> Integer
 maxValue = (+(-1)) . snd . fromValue
 
--- | Drop the base and consider the value as a bit vector. The base
--- conceptually rounds to the next power of 2.
+-- | Drop the base and consider the value as a bit vector. Conceptually,
+-- the base rounds to the next power of 2.
 toBitVec :: Value -> BitVec
 toBitVec (Value (i,n)) = bitVec (codeLen1 n) i
 
