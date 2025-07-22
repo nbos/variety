@@ -91,10 +91,19 @@ err = error . ("Combinatorics." ++)
 -- MULTISET PERMUTATION --
 --------------------------
 
+-- | Encode a multiset permutation into a bit vector. Returns the count
+-- of each element in the set and the code as a vector of length equal
+-- to the multinomial coefficient with those counts.
 encodeMultisetPermutation :: Ord a => [a] -> ([(a,Int)], BitVec)
 encodeMultisetPermutation = fmap (uncurry Var.encode1)
                             . rankMultisetPermutation
 
+-- | Try to decode a multiset permutation at the head of a bit vector,
+-- given the count of each element in the set. If successful, returns
+-- the decoded multiset permutation and the remainder of the `BitVec`
+-- with the permutation's code removed. Returns @Nothing@ if the bit
+-- vector doesn't contain enough bits to specify a multiset permutation
+-- of the given parameters.
 decodeMultisetPermutation :: Ord a => [(a,Int)] -> BitVec -> Maybe ([a], BitVec)
 decodeMultisetPermutation aks bv | BV.length bv0 < len = Nothing
                                  | otherwise = Just (msp, bv1)
@@ -161,7 +170,8 @@ unrankMultisetPermutation l i0
           | otherwise = findBin acc' ascs
           where acc' = acc + subCoef
 
--- | Computes the multinomial coefficient given a list of counts \(k_i\).
+-- | Computes the multinomial coefficient given a list of counts
+-- \(k_i\).
 multinomial :: [Int] -> Integer
 multinomial ns | any (< 0) ns = 0
                | otherwise = E.factorial (sum ns)
@@ -171,9 +181,17 @@ multinomial ns | any (< 0) ns = 0
 -- PERMUTATION --
 -----------------
 
+-- | Encode a permutation into a bit vector of length equal to the
+-- factorial of the length of the given list.
 encodePermutation :: Ord a => [a] -> BitVec
 encodePermutation = uncurry Var.encode1 . rankPermutation
 
+-- | Try to decode a permutation at the head of a bit vector, given the
+-- elements in the set that was permuted. If successful, returns the
+-- decoded permutation and the remainder of the `BitVec` with the
+-- permutation's code removed. Returns @Nothing@ if the bit vector
+-- doesn't contain enough bits to specify a permutation of a set of the
+-- length of the given list of elements.
 decodePermutation :: Ord a => [a] -> BitVec -> Maybe ([a], BitVec)
 decodePermutation as bv | BV.length bv0 < len = Nothing
                         | otherwise = Just (p, bv1)
@@ -224,6 +242,7 @@ unrankPermutation as index
     go s [] = assert (S.null s) []
     go s (i:rest) = S.elemAt i s : go (S.deleteAt i s)  rest
 
+-- | Computes the factorial of the given number.
 factorial :: Int -> Integer
 factorial = E.factorial
 
@@ -231,9 +250,20 @@ factorial = E.factorial
 -- COMBINATION --
 -----------------
 
+-- | Encode a combination in the form of a list of booleans (chosen/not
+-- chosen) into a bit vector. Returns the \((n,k)\) parameters (where
+-- \(k\) is the number of `True` values and \(n\) is the total), and the
+-- code as a vector of length equal to the binomial coefficient with
+-- those parameters.
 encodeCombination :: [Bool] -> ((Int, Int), BitVec)
 encodeCombination = fmap (uncurry Var.encode1) . rankCombination
 
+-- | Try to decode a combination in the form of a list of booleans
+-- (chosen/not chosen) at the head of a bit vector, given the parameters
+-- \((n,k)\). If successful, returns the decoded combination and the
+-- remainder of the `BitVec` with the combination's code
+-- removed. Returns @Nothing@ if the bit vector doesn't contain enough
+-- bits to specify a combination of the given parameters.
 decodeCombination :: (Int, Int) -> BitVec -> Maybe ([Bool], BitVec)
 decodeCombination (n,k) bv | BV.length bv0 < len = Nothing
                            | otherwise = Just (p, bv1)
@@ -243,10 +273,11 @@ decodeCombination (n,k) bv | BV.length bv0 < len = Nothing
     (bv0,bv1) = BV.splitAt len bv
     p = unrankCombination (n,k) $ BV.toInteger bv0
 
--- | Rank a combination in the form of a list of booleans. Returns the
--- \((n,k)\) parameters (where \(k\) is the number of `True` values and
--- \(n\) is the total), the rank and the total number of combinations
--- with those parameters (the binomial coefficient).
+-- | Rank a combination in the form of a list of booleans (chosen/not
+-- chosen). Returns the \((n,k)\) parameters (where \(k\) is the number
+-- of `True` values and \(n\) is the total), the rank and the total
+-- number of combinations with those parameters (the binomial
+-- coefficient).
 rankCombination :: [Bool] -> ((Int, Int), (Integer, Integer))
 rankCombination c = ( (n0, k0)
                     , (res, n0Ck0) )
@@ -292,9 +323,20 @@ choose n k | denom == 0 = 0
 -- DISTRIBUTION --
 ------------------
 
+-- | Encode a distribution in the form of a list bin counts into a bit
+-- vector. Returns the \((n,k)\) parameters (where \(n\) is the total
+-- number of elements and \(k\) is the number of bins) and the code as a
+-- vector of length equal to the number of distributions with those
+-- parameters.
 encodeDistribution :: [Int] -> ((Int, Int), BitVec)
 encodeDistribution = fmap (uncurry Var.encode1) . rankDistribution
 
+-- | Try to decode a distribution in the form of a list of bin counts at
+-- the head of a bit vector, given the parameters \((n,k)\). If
+-- successful, returns the decoded distribution and the remainder of the
+-- `BitVec` with the distribution's code removed. Returns @Nothing@ if
+-- the bit vector doesn't contain enough bits to specify a distribution
+-- of the given parameters.
 decodeDistribution :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
 decodeDistribution (balls,bins) bv | BV.length bv0 < len = Nothing
                                    | otherwise = Just (d, bv1)
@@ -339,6 +381,8 @@ unrankDistribution (balls,bins) i
     countGaps !acc (False:rest) = countGaps (acc + 1) rest
     countGaps !acc (True:rest) = acc : countGaps 0 rest
 
+-- | Computes the number of distributions that have the given parameters
+-- \(n\) and \(k\).
 countDistributions :: Int -> Int -> Integer
 countDistributions balls bins = base
   where
@@ -350,9 +394,20 @@ countDistributions balls bins = base
 -- NON-EMPTY DISTRIBUTION --
 ----------------------------
 
+-- | Encode a non-empty distribution in the form of a list bin counts
+-- into a bit vector. Returns the \((n,k)\) parameters (where \(n\) is
+-- the total number of elements and \(k\) is the number of bins) and the
+-- code as a vector of length equal to the number of distributions with
+-- those parameters.
 encodeDistribution1 :: [Int] -> ((Int, Int), BitVec)
 encodeDistribution1 = fmap (uncurry Var.encode1) . rankDistribution1
 
+-- | Try to decode a non-empty distribution in the form of a list of bin
+-- counts at the head of a bit vector, given the parameters
+-- \((n,k)\). If successful, returns the decoded distribution and the
+-- remainder of the `BitVec` with the distribution's code
+-- removed. Returns @Nothing@ if the bit vector doesn't contain enough
+-- bits to specify a non-empty distribution of the given parameters.
 decodeDistribution1 :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
 decodeDistribution1 (bins,balls) bv | BV.length bv0 < len = Nothing
                                     | otherwise = Just (d1, bv1)
@@ -386,6 +441,8 @@ unrankDistribution1 (balls,bins) i
     err' = err . ("unrankDistribution1: " ++)
     balls' = balls - bins
 
+-- | Computes the number of non-empty distributions that have the given
+-- parameters \(n\) and \(k\).
 countDistributions1 :: Int -> Int -> Integer
 countDistributions1 balls bins
   | balls < bins || bins < 0 =
