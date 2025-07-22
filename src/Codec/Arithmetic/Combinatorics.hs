@@ -16,7 +16,9 @@ module Codec.Arithmetic.Combinatorics
     -- k_{1}, k_{2}, \ldots, k_{m}} = \frac{n!}{k_{1}! k_{2}! \cdots
     -- k_{m}!} ~~~~~\mathrm{where}~~~~~ n = \sum_i k_i \]
 
-    rankMultisetPermutation
+    encodeMultisetPermutation
+  , decodeMultisetPermutation
+  , rankMultisetPermutation
   , unrankMultisetPermutation
   , multinomial
 
@@ -26,8 +28,11 @@ module Codec.Arithmetic.Combinatorics
   -- ordering of the objects of a set of distinct elements. The number
   -- of permutations of a set of \(n\) elements is \(n!\).
 
+  , encodePermutation
+  , decodePermutation
   , rankPermutation
   , unrankPermutation
+  , factorial
 
   -- * Combinations
 
@@ -36,6 +41,8 @@ module Codec.Arithmetic.Combinatorics
   -- combinations for parameters \(n\) and \(k\) is given by the
   -- binomial coefficient: \[ {n \choose k} = \frac{n!}{k! (n-k)!}  \]
 
+  , encodeCombination
+  , decodeCombination
   , rankCombination
   , unrankCombination
   , choose
@@ -47,16 +54,22 @@ module Codec.Arithmetic.Combinatorics
   -- is a way to distribute \(n\) equal elements (stars) among \(k\)
   -- bins (i.e. \(k-1\) bars ).
 
+  , encodeDistribution
+  , decodeDistribution
   , rankDistribution
   , unrankDistribution
+  , countDistributions
 
   -- * Non-Empty Distributions
 
   -- | The class of distributions that have at least one element per
   -- bin.
 
+  , encodeDistribution1
+  , decodeDistribution1
   , rankDistribution1
   , unrankDistribution1
+  , countDistributions1
   ) where
 
 import Control.Exception (assert)
@@ -65,12 +78,31 @@ import qualified Data.Set as S
 import qualified Data.List as L
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Math.Combinatorics.Exact.Factorial (factorial)
+import qualified Math.Combinatorics.Exact.Factorial as E (factorial)
 
-import qualified Codec.Arithmetic.Variety as V
+import qualified Codec.Arithmetic.Variety as Var
+import Codec.Arithmetic.Variety.BitVec (BitVec)
+import qualified Codec.Arithmetic.Variety.BitVec as BV
 
 err :: String -> a
 err = error . ("Combinatorics." ++)
+
+--------------------------
+-- MULTISET PERMUTATION --
+--------------------------
+
+encodeMultisetPermutation :: Ord a => [a] -> ([(a,Int)], BitVec)
+encodeMultisetPermutation = fmap (uncurry Var.encode1)
+                            . rankMultisetPermutation
+
+decodeMultisetPermutation :: Ord a => [(a,Int)] -> BitVec -> Maybe ([a], BitVec)
+decodeMultisetPermutation aks bv | BV.length bv0 < len = Nothing
+                                 | otherwise = Just (msp, bv1)
+  where
+    base = multinomial $ snd <$> aks
+    len = Var.codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
+    msp = unrankMultisetPermutation aks $ BV.toInteger bv0
 
 -- | Rank a multiset permutation. Returns the count of each element in
 -- the set, the rank and the total number of permutations with those
@@ -81,8 +113,8 @@ rankMultisetPermutation msp = ( M.toList counts
   where
     counts = L.foldl' (\m k -> M.insertWith (+) k 1 m) M.empty msp
     total0 = sum counts
-    coef0 = factorial total0
-            `div` product (factorial <$> counts)
+    coef0 = E.factorial total0
+            `div` product (E.factorial <$> counts)
     index = sum $ go (fromIntegral total0) coef0 counts msp
 
     go :: Ord a => Integer -> Integer -> Map a Int -> [a] -> [Integer]
@@ -110,8 +142,8 @@ unrankMultisetPermutation l i0
     err' = err . ("unrankMultisetPermutation: " ++)
     counts = M.fromList $ filter ((> 0) . snd) l
     total0 = sum counts
-    coef0 = factorial total0
-            `div` product (factorial <$> counts)
+    coef0 = E.factorial total0
+            `div` product (E.factorial <$> counts)
 
     go total coef m i | M.null m = []
                       | otherwise = a : go total' coef' m' i'
@@ -132,14 +164,30 @@ unrankMultisetPermutation l i0
 -- | Computes the multinomial coefficient given a list of counts \(k_i\).
 multinomial :: [Int] -> Integer
 multinomial ns | any (< 0) ns = 0
-               | otherwise = factorial (sum ns)
-                             `div` product (factorial <$> ns)
+               | otherwise = E.factorial (sum ns)
+                             `div` product (E.factorial <$> ns)
 
--- | Rank a permutation. Returns the rank and the total number of
--- permutations of sets with that size ( \(n!\) ).
+-----------------
+-- PERMUTATION --
+-----------------
+
+encodePermutation :: Ord a => [a] -> BitVec
+encodePermutation = uncurry Var.encode1 . rankPermutation
+
+decodePermutation :: Ord a => [a] -> BitVec -> Maybe ([a], BitVec)
+decodePermutation as bv | BV.length bv0 < len = Nothing
+                        | otherwise = Just (p, bv1)
+  where
+    base = E.factorial $ length as
+    len = Var.codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
+    p = unrankPermutation as $ BV.toInteger bv0
+
+-- | Rank a permutation. Returns the rank (`fst`) and the total number
+-- of permutations of sets with that size ( \(n!\) ) (`snd`).
 rankPermutation :: Ord a => [a] -> (Integer, Integer)
 rankPermutation p | length p /= n0 = err' "not unique elements"
-                  | otherwise = V.fromValue val
+                  | otherwise = Var.fromValue val
   where
     err' = err . ("rankPermutation: " ++)
     s0 = S.fromList p
@@ -148,7 +196,7 @@ rankPermutation p | length p /= n0 = err' "not unique elements"
     is = fromIntegral <$> go s0 p
     val = assert (length is == length ns)
           mconcat $
-          zipWith V.mkValue is ns
+          zipWith Var.mkValue is ns
 
     -- | Lookup element index in the set of remaining elements
     go s [] = assert (S.null s) []
@@ -168,13 +216,32 @@ unrankPermutation as index
     set = S.fromList as
     n = S.size set
     ns = fromIntegral <$> [n,n-1..1]
-    base = factorial $ fromIntegral n
-    bv = V.toBitVec $ V.mkValue index base
-    is = fromIntegral <$> fst (fromJust $ V.decode ns bv)
+    base = E.factorial $ fromIntegral n
+    bv = Var.toBitVec $ Var.mkValue index base
+    is = fromIntegral <$> fst (fromJust $ Var.decode ns bv)
 
     -- | Successively delete elements at given indexes from a set
     go s [] = assert (S.null s) []
     go s (i:rest) = S.elemAt i s : go (S.deleteAt i s)  rest
+
+factorial :: Int -> Integer
+factorial = E.factorial
+
+-----------------
+-- COMBINATION --
+-----------------
+
+encodeCombination :: [Bool] -> ((Int, Int), BitVec)
+encodeCombination = fmap (uncurry Var.encode1) . rankCombination
+
+decodeCombination :: (Int, Int) -> BitVec -> Maybe ([Bool], BitVec)
+decodeCombination (n,k) bv | BV.length bv0 < len = Nothing
+                           | otherwise = Just (p, bv1)
+  where
+    base = choose n k
+    len = Var.codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
+    p = unrankCombination (n,k) $ BV.toInteger bv0
 
 -- | Rank a combination in the form of a list of booleans. Returns the
 -- \((n,k)\) parameters (where \(k\) is the number of `True` values and
@@ -218,8 +285,24 @@ unrankCombination nk@(n0,k0) i0
 choose :: Int -> Int -> Integer
 choose n k | denom == 0 = 0
            | otherwise = num `div` denom
-  where num = factorial n
-        denom = factorial k * factorial (n-k)
+  where num = E.factorial n
+        denom = E.factorial k * E.factorial (n-k)
+
+------------------
+-- DISTRIBUTION --
+------------------
+
+encodeDistribution :: [Int] -> ((Int, Int), BitVec)
+encodeDistribution = fmap (uncurry Var.encode1) . rankDistribution
+
+decodeDistribution :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
+decodeDistribution (balls,bins) bv | BV.length bv0 < len = Nothing
+                                   | otherwise = Just (d, bv1)
+  where
+    base = countDistributions balls bins
+    len = Var.codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
+    d = unrankDistribution (balls,bins) $ BV.toInteger bv0
 
 -- | Rank a distribution in the form of a list bin counts. Returns the
 -- \((n,k)\) parameters (where \(n\) is the total number of elements and
@@ -256,14 +339,37 @@ unrankDistribution (balls,bins) i
     countGaps !acc (False:rest) = countGaps (acc + 1) rest
     countGaps !acc (True:rest) = acc : countGaps 0 rest
 
+countDistributions :: Int -> Int -> Integer
+countDistributions balls bins = base
+  where
+    n = balls + bins - 1 -- stars and bars
+    k = bins - 1 -- number of bars
+    base = if bins == 0 then 1 else n `choose` k
+
+----------------------------
+-- NON-EMPTY DISTRIBUTION --
+----------------------------
+
+encodeDistribution1 :: [Int] -> ((Int, Int), BitVec)
+encodeDistribution1 = fmap (uncurry Var.encode1) . rankDistribution1
+
+decodeDistribution1 :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
+decodeDistribution1 (bins,balls) bv | BV.length bv0 < len = Nothing
+                                    | otherwise = Just (d1, bv1)
+  where
+    base = countDistributions1 bins balls
+    len = Var.codeLen1 base
+    (bv0,bv1) = BV.splitAt len bv
+    d1 = unrankDistribution1 (balls,bins) $ BV.toInteger bv0
+
 -- | Rank a non-empty distribution in the form of a list bin
 -- counts. Returns the \((n,k)\) parameters (where \(n\) is the total
 -- number of elements and \(k\) is the number of bins), the rank and the
 -- total number of distributions with those parameters.
 rankDistribution1 :: [Int] -> ((Int, Int), (Integer, Integer))
 rankDistribution1 ns
-  | any (< 1) ns = if any (< 0) ns then err' "negative count"
-                   else err' "empty count"
+  | any (< 0) ns = err' "negative count"
+  | any (< 1) ns = err' "empty count"
   | otherwise = ((balls,bins),(i,base))
   where
     err' = err . ("rankDistribution1: " ++)
@@ -276,6 +382,15 @@ unrankDistribution1 (balls,bins) i
   | balls < bins || bins < 0 =
       err' $ "invalid parameters: " ++ show (balls,bins)
   | otherwise = (+1) <$> unrankDistribution (balls',bins) i
+  where
+    err' = err . ("unrankDistribution1: " ++)
+    balls' = balls - bins
+
+countDistributions1 :: Int -> Int -> Integer
+countDistributions1 balls bins
+  | balls < bins || bins < 0 =
+      err' $ "invalid parameters: " ++ show (balls,bins)
+  | otherwise = countDistributions balls' bins
   where
     err' = err . ("unrankDistribution1: " ++)
     balls' = balls - bins

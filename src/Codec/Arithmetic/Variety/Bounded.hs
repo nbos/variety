@@ -17,7 +17,7 @@ module Codec.Arithmetic.Variety.Bounded
 import Data.Bits (Bits(bit))
 import Data.Bifunctor (Bifunctor(first))
 
-import qualified Codec.Arithmetic.Variety as V
+import qualified Codec.Arithmetic.Variety as Var
 import Codec.Arithmetic.Variety.BitVec (BitVec)
 
 err :: String -> a
@@ -47,7 +47,7 @@ groupWithinPrec getBase prec
 -- associated values must exist in the range @[0..base-1]@.
 encode :: Int -> [(Integer,Integer)] -> BitVec
 encode = mconcat
-         . fmap (V.encode . snd)
+         . fmap (Var.encode . snd)
          .: groupWithinPrec snd
 
 -- | Return the length of the code of a sequence of values in the given
@@ -55,7 +55,7 @@ encode = mconcat
 codeLen :: Int -> [Integer] -> Int
 codeLen = fromIntegral
           . sum
-          . fmap (V.codeLen1 . fst)
+          . fmap (Var.codeLen1 . fst)
           .: groupWithinPrec id
 
 -- | Try to decode the head of a bit vector given the same precision and
@@ -68,7 +68,7 @@ decode = go .: groupWithinPrec id
   where
     go [] bv = Just ([], bv)
     go ((_,bases):rest) bv = do
-      (vals, bv') <- V.decode bases bv
+      (vals, bv') <- Var.decode bases bv
       first (vals ++) <$> go rest bv'
 
 (.:) :: (b -> c) -> (a1 -> a2 -> b) -> a1 -> a2 -> c
