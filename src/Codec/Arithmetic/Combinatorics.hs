@@ -101,7 +101,7 @@ encodeMultisetPermutation = fmap (uncurry Var.encode1)
 -- | Try to decode a multiset permutation at the head of a bit vector,
 -- given the count of each element in the set. If successful, returns
 -- the decoded multiset permutation and the remainder of the `BitVec`
--- with the permutation's code removed. Returns @Nothing@ if the bit
+-- stripped of the permutation's code. Returns @Nothing@ if the bit
 -- vector doesn't contain enough bits to specify a multiset permutation
 -- of the given parameters.
 decodeMultisetPermutation :: Ord a => [(a,Int)] -> BitVec -> Maybe ([a], BitVec)
@@ -188,10 +188,10 @@ encodePermutation = uncurry Var.encode1 . rankPermutation
 
 -- | Try to decode a permutation at the head of a bit vector, given the
 -- elements in the set that was permuted. If successful, returns the
--- decoded permutation and the remainder of the `BitVec` with the
--- permutation's code removed. Returns @Nothing@ if the bit vector
--- doesn't contain enough bits to specify a permutation of a set of the
--- length of the given list of elements.
+-- decoded permutation and the remainder of the `BitVec` stripped of the
+-- permutation's code. Returns @Nothing@ if the bit vector doesn't
+-- contain enough bits to specify a permutation of a set of the length
+-- of the given list of elements.
 decodePermutation :: Ord a => [a] -> BitVec -> Maybe ([a], BitVec)
 decodePermutation as bv | BV.length bv0 < len = Nothing
                         | otherwise = Just (p, bv1)
@@ -251,19 +251,18 @@ factorial = E.factorial
 -----------------
 
 -- | Encode a combination in the form of a list of booleans (chosen/not
--- chosen) into a bit vector. Returns the \((n,k)\) parameters (where
--- \(k\) is the number of `True` values and \(n\) is the total), and the
--- code as a vector of length equal to the binomial coefficient with
--- those parameters.
+-- chosen) into a bit vector. Returns \((n,k)\) where \(n\) is the
+-- length of the list and \(k\) is the number of `True` values, and the
+-- code as a bit vector.
 encodeCombination :: [Bool] -> ((Int, Int), BitVec)
 encodeCombination = fmap (uncurry Var.encode1) . rankCombination
 
 -- | Try to decode a combination in the form of a list of booleans
 -- (chosen/not chosen) at the head of a bit vector, given the parameters
 -- \((n,k)\). If successful, returns the decoded combination and the
--- remainder of the `BitVec` with the combination's code
--- removed. Returns @Nothing@ if the bit vector doesn't contain enough
--- bits to specify a combination of the given parameters.
+-- remainder of the `BitVec` stripped of the combination's code. Returns
+-- @Nothing@ if the bit vector doesn't contain enough bits to specify a
+-- combination of the given parameters.
 decodeCombination :: (Int, Int) -> BitVec -> Maybe ([Bool], BitVec)
 decodeCombination (n,k) bv | BV.length bv0 < len = Nothing
                            | otherwise = Just (p, bv1)
@@ -274,10 +273,9 @@ decodeCombination (n,k) bv | BV.length bv0 < len = Nothing
     p = unrankCombination (n,k) $ BV.toInteger bv0
 
 -- | Rank a combination in the form of a list of booleans (chosen/not
--- chosen). Returns the \((n,k)\) parameters (where \(k\) is the number
--- of `True` values and \(n\) is the total), the rank and the total
--- number of combinations with those parameters (the binomial
--- coefficient).
+-- chosen). Returns \((n,k)\) where \(n\) is the length of the list and
+-- \(k\) is the number of `True` values, the rank and the total number
+-- of combinations with those parameters (the binomial coefficient).
 rankCombination :: [Bool] -> ((Int, Int), (Integer, Integer))
 rankCombination c = ( (n0, k0)
                     , (res, n0Ck0) )
@@ -297,8 +295,8 @@ rankCombination c = ( (n0, k0)
 
 -- | Reconstruct a combination given parameters \((n,k)\) and a rank.
 unrankCombination :: (Int, Int) -> Integer -> [Bool]
-unrankCombination nk@(n0,k0) i0
-  | k0 > n0 || k0 < 0 || n0 < 0 = err' $ "invalid parameters: " ++ show nk
+unrankCombination (n0,k0) i0
+  | k0 > n0 || k0 < 0 || n0 < 0 = err' $ "invalid parameters: " ++ show (n0,k0)
   | i0 < 0 || i0 > n0Ck0 = err' $ "out of range: " ++ show (i0,n0Ck0)
   | otherwise = go (fromIntegral n0) (fromIntegral k0) n0Ck0 i0
 
@@ -323,18 +321,17 @@ choose n k | denom == 0 = 0
 -- DISTRIBUTION --
 ------------------
 
--- | Encode a distribution in the form of a list bin counts into a bit
--- vector. Returns the \((n,k)\) parameters (where \(n\) is the total
--- number of elements and \(k\) is the number of bins) and the code as a
--- vector of length equal to the number of distributions with those
--- parameters.
+-- | Encode a distribution defined as a list of bin counts into a bit
+-- vector. Returns \((n,k)\) where \(n\) is the total number of elements
+-- and \(k\) is the number of bins, and the code as a bit vector.
 encodeDistribution :: [Int] -> ((Int, Int), BitVec)
 encodeDistribution = fmap (uncurry Var.encode1) . rankDistribution
 
--- | Try to decode a distribution in the form of a list of bin counts at
--- the head of a bit vector, given the parameters \((n,k)\). If
--- successful, returns the decoded distribution and the remainder of the
--- `BitVec` with the distribution's code removed. Returns @Nothing@ if
+-- | Try to decode a distribution at the head of a bit vector, given
+-- parameters \((n,k)\) where \(n\) is the total number of elements and
+-- \(k\) is the number of bins. If successful, returns the decoded
+-- distribution as a list of bin counts and the remainder of the
+-- `BitVec` stripped of the distribution's code. Returns @Nothing@ if
 -- the bit vector doesn't contain enough bits to specify a distribution
 -- of the given parameters.
 decodeDistribution :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
@@ -354,14 +351,14 @@ rankDistribution :: [Int] -> ((Int, Int), (Integer, Integer))
 rankDistribution [] = ((0,0),(0,1))
 rankDistribution (n0:ns)
   | n0 < 0 || any (< 0) ns = err' "negative count"
-  | otherwise = ((bins,balls),(i,base))
+  | otherwise = ((balls,bins),(i,base))
   where
     err' = err . ("rankDistribution: " ++)
     comb = replicate n0 False -- 0s are stars, 1s are bars
            ++ concatMap ((True:) . flip replicate False) ns
-    ((n,k),(i,base)) = rankCombination comb
-    bins = k + 1
-    balls = n - bins + 1
+    ((nComb,kComb),(i,base)) = rankCombination comb
+    bins = kComb + 1
+    balls = nComb - bins + 1
 
 -- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
 unrankDistribution :: (Int, Int) -> Integer -> [Int]
@@ -372,10 +369,10 @@ unrankDistribution (balls,bins) i
   | otherwise = countGaps 0 bs
   where
     err' = err . ("unrankDistribution: " ++)
-    n = balls + bins - 1 -- stars and bars
-    k = bins - 1 -- number of bars
-    base = if bins == 0 then 1 else n `choose` k
-    bs = unrankCombination (n,k) i
+    nComb = balls + bins - 1 -- stars and bars
+    kComb = bins - 1 -- number of bars
+    base = if bins == 0 then 1 else nComb `choose` kComb
+    bs = unrankCombination (nComb,kComb) i
 
     countGaps !acc [] = [acc]
     countGaps !acc (False:rest) = countGaps (acc + 1) rest
@@ -386,9 +383,9 @@ unrankDistribution (balls,bins) i
 countDistributions :: Int -> Int -> Integer
 countDistributions balls bins = base
   where
-    n = balls + bins - 1 -- stars and bars
-    k = bins - 1 -- number of bars
-    base = if bins == 0 then 1 else n `choose` k
+    nComb = balls + bins - 1 -- stars and bars
+    kComb = bins - 1 -- number of bars
+    base = if bins == 0 then 1 else nComb `choose` kComb
 
 ----------------------------
 -- NON-EMPTY DISTRIBUTION --
