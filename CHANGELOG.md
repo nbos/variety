@@ -1,5 +1,10 @@
 # Revision history for variety
 
+## 0.2.1.0 -- 2025-08-19
+
+* Fixed returned parameter order on distribution ranking/encoding.
+* Edited documentation.
+
 ## 0.2.0.0 -- 2025-07-22
 
 * Altered the type/interface for all BitVec decoding functions to
