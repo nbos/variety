@@ -1,5 +1,9 @@
 # Revision history for variety
 
+## 0.2.1.1 -- 2025-09-14
+
+* Support containers-0.8
+
 ## 0.2.1.0 -- 2025-08-19
 
 * Fixed returned parameter order on distribution ranking/encoding.
