@@ -1,5 +1,9 @@
 # Revision history for variety
 
+## 0.3.0.0 -- 2025-11-25
+
+* Renamed stars-and-bars "distributions" as multisets
+
 ## 0.2.1.1 -- 2025-09-14
 
 * Support containers-0.8
