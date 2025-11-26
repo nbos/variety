@@ -17,8 +17,8 @@ main = do
   void $ runTestTT $ TestLabel "Combinatorics:msp" multisetPermutation
   void $ runTestTT $ TestLabel "Combinatorics:permutation" permutation
   void $ runTestTT $ TestLabel "Combinatorics:combination" combination
-  void $ runTestTT $ TestLabel "Combinatorics:distribution" distribution
-  void $ runTestTT $ TestLabel "Combinatorics:distribution1" distribution1
+  void $ runTestTT $ TestLabel "Combinatorics:multiset" multiset
+  void $ runTestTT $ TestLabel "Combinatorics:multiset1" multiset1
   void $ runTestTT $ TestLabel "Elias:reference" eliasReference
   void $ runTestTT $ TestLabel "Elias:comprehensive" eliasComprehensive
 
@@ -65,10 +65,10 @@ combination = "Combination " ~: TestList $ (<$> samples) $ \(n,k)->
                   , (5, 3)
                   , (5, 5) ]
 
-distribution :: Test
-distribution = "Distribution " ~: TestList $ (<$> samples) $ \params ->
-  let (_,(_,base)) = Comb.rankDistribution $ Comb.unrankDistribution params 0
-      f = fst . snd . Comb.rankDistribution . Comb.unrankDistribution params
+multiset :: Test
+multiset = "Multiset " ~: TestList $ (<$> samples) $ \params ->
+  let (_,(_,base)) = Comb.rankMultiset $ Comb.unrankMultiset params 0
+      f = fst . snd . Comb.rankMultiset . Comb.unrankMultiset params
   in TestList $ (<$> [0..base-1]) $ \i -> show (params, i) ~: f i @?= i
   where samples = [ (0, 0)
                   , (5, 0)
@@ -76,10 +76,10 @@ distribution = "Distribution " ~: TestList $ (<$> samples) $ \params ->
                   , (5, 5)
                   , (3, 5) ]
 
-distribution1 :: Test
-distribution1 = "Non-empty Distribution " ~: TestList $ (<$> samples) $ \params ->
-  let (_,(_,base)) = Comb.rankDistribution1 $ Comb.unrankDistribution1 params 0
-      f = fst . snd . Comb.rankDistribution1 . Comb.unrankDistribution1 params
+multiset1 :: Test
+multiset1 = "Non-empty Multiset " ~: TestList $ (<$> samples) $ \params ->
+  let (_,(_,base)) = Comb.rankMultiset1 $ Comb.unrankMultiset1 params 0
+      f = fst . snd . Comb.rankMultiset1 . Comb.unrankMultiset1 params
   in TestList $ (<$> [0..base-1]) $ \i -> show (params, i) ~: f i @?= i
   where samples = [ (0, 0)
                   , (5, 0)

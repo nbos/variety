@@ -39,7 +39,7 @@ module Codec.Arithmetic.Combinatorics
   -- | A [combination](https://en.wikipedia.org/wiki/Combination) is a
   -- selection of \(k\) elements from a set of size \(n\). The number of
   -- combinations for parameters \(n\) and \(k\) is given by the
-  -- binomial coefficient: \[ {n \choose k} = \frac{n!}{k! (n-k)!}  \]
+  -- binomial coefficient: \[ {n \choose k} = \frac{n!}{k! (n-k)!} \]
 
   , encodeCombination
   , decodeCombination
@@ -47,29 +47,34 @@ module Codec.Arithmetic.Combinatorics
   , unrankCombination
   , choose
 
-  -- * Distributions
+  -- * Multisets
 
-  -- | A distribution (usually discussed under the name [stars and
-  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics\)))
-  -- is a way to distribute \(n\) equal elements (stars) among \(k\)
-  -- bins (i.e. \(k-1\) bars ).
+  -- | A [multiset](https://en.wikipedia.org/wiki/Multiset) is a set
+  -- where elements may appear more than once. The number of multisets
+  -- of size \(n\) with at most \(m\) distinct elements is equivalent to
+  -- a certain combination when counting the number of ways to
+  -- distribute \(n\) identical elements to \(m\) bins (see [stars and
+  -- bars](https://en.wikipedia.org/wiki/Stars_and_bars_(combinatorics\))):
+  -- \[ {n + m - 1 \choose m - 1} \] or referred to as the "multiset
+  -- coefficient": \[ \left(\!\!{m \choose n}\!\!\right) = {m + n - 1
+  -- \choose n} = \frac{(n + m - 1)!}{n!(m-1)!}  \]
 
-  , encodeDistribution
-  , decodeDistribution
-  , rankDistribution
-  , unrankDistribution
-  , countDistributions
+  , encodeMultiset
+  , decodeMultiset
+  , rankMultiset
+  , unrankMultiset
+  , multichoose
 
-  -- * Non-Empty Distributions
+  -- * Multisets with Positive Counts
 
-  -- | The class of distributions that have at least one element per
-  -- bin.
+  -- | A special class of multisets where each of the \(m\) distinct
+  -- elements appears at least once.
 
-  , encodeDistribution1
-  , decodeDistribution1
-  , rankDistribution1
-  , unrankDistribution1
-  , countDistributions1
+  , encodeMultiset1
+  , decodeMultiset1
+  , rankMultiset1
+  , unrankMultiset1
+  , multichoose1
   ) where
 
 import Control.Exception (assert)
@@ -317,58 +322,59 @@ choose n k | denom == 0 = 0
   where num = E.factorial n
         denom = E.factorial k * E.factorial (n-k)
 
-------------------
--- DISTRIBUTION --
-------------------
+--------------
+-- MULTISET --
+--------------
 
--- | Encode a distribution defined as a list of bin counts into a bit
--- vector. Returns \((n,k)\) where \(n\) is the total number of elements
--- and \(k\) is the number of bins, and the code as a bit vector.
-encodeDistribution :: [Int] -> ((Int, Int), BitVec)
-encodeDistribution = fmap (uncurry Var.encode1) . rankDistribution
+-- | Encode a multiset specified as a list of non-negative element
+-- counts into a bit vector. Returns parameters \((n,m)\) where \(n\) is
+-- the total number of elements and \(m\) is the number of distinct
+-- elements, and the code as a bit vector.
+encodeMultiset :: [Int] -> ((Int, Int), BitVec)
+encodeMultiset = fmap (uncurry Var.encode1) . rankMultiset
 
--- | Try to decode a distribution at the head of a bit vector, given
--- parameters \((n,k)\) where \(n\) is the total number of elements and
--- \(k\) is the number of bins. If successful, returns the decoded
--- distribution as a list of bin counts and the remainder of the
--- `BitVec` stripped of the distribution's code. Returns @Nothing@ if
--- the bit vector doesn't contain enough bits to specify a distribution
--- of the given parameters.
-decodeDistribution :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
-decodeDistribution (balls,bins) bv | BV.length bv0 < len = Nothing
-                                   | otherwise = Just (d, bv1)
+-- | Try to decode a multiset at the head of a bit vector, given
+-- parameters \((n,m)\) where \(n\) is the total number of elements and
+-- \(m\) is the number of distinct elements. If successful, returns the
+-- decoded multiset as a list of non-negative element counts and the
+-- remainder of the `BitVec` stripped of the multiset's code. Returns
+-- @Nothing@ if the bit vector doesn't contain enough bits to specify a
+-- multiset of the given parameters.
+decodeMultiset :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
+decodeMultiset (balls,bins) bv | BV.length bv0 < len = Nothing
+                               | otherwise = Just (d, bv1)
   where
-    base = countDistributions balls bins
+    base = bins `multichoose` balls
     len = Var.codeLen1 base
     (bv0,bv1) = BV.splitAt len bv
-    d = unrankDistribution (balls,bins) $ BV.toInteger bv0
+    d = unrankMultiset (balls,bins) $ BV.toInteger bv0
 
--- | Rank a distribution in the form of a list bin counts. Returns the
--- \((n,k)\) parameters (where \(n\) is the total number of elements and
--- \(k\) is the number of bins), the rank and the total number of
--- distributions with those parameters.
-rankDistribution :: [Int] -> ((Int, Int), (Integer, Integer))
-rankDistribution [] = ((0,0),(0,1))
-rankDistribution (n0:ns)
+-- | Rank a multiset specified as a list of non-negative element
+-- counts. Returns the \((n,m)\) parameters (where \(n\) is the total
+-- number of elements and \(m\) is the number of distinct elements), the
+-- rank and the number of multisets with those parameters.
+rankMultiset :: [Int] -> ((Int, Int), (Integer, Integer))
+rankMultiset [] = ((0,0),(0,1))
+rankMultiset (n0:ns)
   | n0 < 0 || any (< 0) ns = err' "negative count"
   | otherwise = ((balls,bins),(i,base))
   where
-    err' = err . ("rankDistribution: " ++)
+    err' = err . ("rankMultiset: " ++)
     comb = replicate n0 False -- 0s are stars, 1s are bars
            ++ concatMap ((True:) . flip replicate False) ns
     ((nComb,kComb),(i,base)) = rankCombination comb
     bins = kComb + 1
     balls = nComb - bins + 1
 
--- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
-unrankDistribution :: (Int, Int) -> Integer -> [Int]
-unrankDistribution (balls,bins) i
+-- | Reconstruct a multiset given parameters \((n,m)\) and a rank.
+unrankMultiset :: (Int, Int) -> Integer -> [Int]
+unrankMultiset (balls,bins) i
   | balls < 0 || bins < 0 = err' $ "invalid parameters: " ++ show (balls,bins)
   | i < 0 || i >= base = err' $ "out of range: " ++ show (i,base)
   | bins == 0 = []
   | otherwise = countGaps 0 bs
   where
-    err' = err . ("unrankDistribution: " ++)
+    err' = err . ("unrankMultiset: " ++)
     nComb = balls + bins - 1 -- stars and bars
     kComb = bins - 1 -- number of bars
     base = if bins == 0 then 1 else nComb `choose` kComb
@@ -378,73 +384,77 @@ unrankDistribution (balls,bins) i
     countGaps !acc (False:rest) = countGaps (acc + 1) rest
     countGaps !acc (True:rest) = acc : countGaps 0 rest
 
--- | Computes the number of distributions that have the given parameters
--- \(n\) and \(k\).
-countDistributions :: Int -> Int -> Integer
-countDistributions balls bins = base
+-- | @m ``multichoose`` n@ computes the number of multisets with \(n\)
+-- total elements with at most \(m\) distinct elements, or the "multiset
+-- coefficent": \[ \left(\!\!{m \choose n}\!\!\right) = \frac{(m + n -
+-- 1)!}{n!(m-1)!} \]
+multichoose :: Int -> Int -> Integer
+multichoose bins balls | bins == 0 = 1
+                       | otherwise = nComb `choose` kComb
   where
     nComb = balls + bins - 1 -- stars and bars
     kComb = bins - 1 -- number of bars
-    base = if bins == 0 then 1 else nComb `choose` kComb
 
-----------------------------
--- NON-EMPTY DISTRIBUTION --
-----------------------------
+-----------------------
+-- POSITIVE MULTISET --
+-----------------------
 
--- | Encode a non-empty distribution in the form of a list bin counts
--- into a bit vector. Returns the \((n,k)\) parameters (where \(n\) is
--- the total number of elements and \(k\) is the number of bins) and the
--- code as a vector of length equal to the number of distributions with
--- those parameters.
-encodeDistribution1 :: [Int] -> ((Int, Int), BitVec)
-encodeDistribution1 = fmap (uncurry Var.encode1) . rankDistribution1
+-- | Encode a multiset specified as a list of positive bin counts into a
+-- bit vector. Returns parameters \((n,m)\) where \(n\) is the total
+-- number of elements and \(m\) is the number of distinct elements, and
+-- the code as a bit vector.
+encodeMultiset1 :: [Int] -> ((Int, Int), BitVec)
+encodeMultiset1 = fmap (uncurry Var.encode1) . rankMultiset1
 
--- | Try to decode a non-empty distribution in the form of a list of bin
--- counts at the head of a bit vector, given the parameters
--- \((n,k)\). If successful, returns the decoded distribution and the
--- remainder of the `BitVec` with the distribution's code
--- removed. Returns @Nothing@ if the bit vector doesn't contain enough
--- bits to specify a non-empty distribution of the given parameters.
-decodeDistribution1 :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
-decodeDistribution1 (bins,balls) bv | BV.length bv0 < len = Nothing
-                                    | otherwise = Just (d1, bv1)
+-- | Try to decode a multiset at the head of a bit vector, given
+-- parameters \((n,m)\), where \(n\) is the total number of elements,
+-- \(m\) is the number of distinct elements and \(n \geq m\). If
+-- successful, returns the decoded multiset as a list of positive
+-- element counts and the remainder of the `BitVec` with the multiset's
+-- code removed. Returns @Nothing@ if the bit vector doesn't contain
+-- enough bits to specify such a multiset of the given parameters.
+decodeMultiset1 :: (Int, Int) -> BitVec -> Maybe ([Int], BitVec)
+decodeMultiset1 (bins,balls) bv | BV.length bv0 < len = Nothing
+                                | otherwise = Just (d1, bv1)
   where
-    base = countDistributions1 bins balls
+    base = bins `multichoose1` balls
     len = Var.codeLen1 base
     (bv0,bv1) = BV.splitAt len bv
-    d1 = unrankDistribution1 (balls,bins) $ BV.toInteger bv0
+    d1 = unrankMultiset1 (balls,bins) $ BV.toInteger bv0
 
--- | Rank a non-empty distribution in the form of a list bin
--- counts. Returns the \((n,k)\) parameters (where \(n\) is the total
--- number of elements and \(k\) is the number of bins), the rank and the
--- total number of distributions with those parameters.
-rankDistribution1 :: [Int] -> ((Int, Int), (Integer, Integer))
-rankDistribution1 ns
+-- | Rank a multiset specified as a list of positive element
+-- counts. Returns the \((n,m)\) parameters (where \(n\) is the total
+-- number of elements and \(m\) is the number of distinct elements), the
+-- rank and the number of multisets with those parameters.
+rankMultiset1 :: [Int] -> ((Int, Int), (Integer, Integer))
+rankMultiset1 ns
   | any (< 0) ns = err' "negative count"
   | any (< 1) ns = err' "empty count"
   | otherwise = ((balls,bins),(i,base))
   where
-    err' = err . ("rankDistribution1: " ++)
-    ((balls',bins),(i,base)) = rankDistribution $ (+(-1)) <$> ns
+    err' = err . ("rankMultiset1: " ++)
+    ((balls',bins),(i,base)) = rankMultiset $ (+(-1)) <$> ns
     balls = balls' + bins
 
--- | Reconstruct a distribution given parameters \((n,k)\) and a rank.
-unrankDistribution1 :: (Int, Int) -> Integer -> [Int]
-unrankDistribution1 (balls,bins) i
+-- | Reconstruct a multiset given parameters \((n,m)\) and a rank.
+unrankMultiset1 :: (Int, Int) -> Integer -> [Int]
+unrankMultiset1 (balls,bins) i
   | balls < bins || bins < 0 =
       err' $ "invalid parameters: " ++ show (balls,bins)
-  | otherwise = (+1) <$> unrankDistribution (balls',bins) i
+  | otherwise = (+1) <$> unrankMultiset (balls',bins) i
   where
-    err' = err . ("unrankDistribution1: " ++)
+    err' = err . ("unrankMultiset1: " ++)
     balls' = balls - bins
 
--- | Computes the number of non-empty distributions that have the given
--- parameters \(n\) and \(k\).
-countDistributions1 :: Int -> Int -> Integer
-countDistributions1 balls bins
+-- | @m ``multichoose1`` n@ computes the number of multisets with \(n\)
+-- total elements and exactly \(m\) distinct elements. This is
+-- equivalent to @m ``multichoose`` (n - m)@ or: \[ \left(\!\!{m \choose
+-- n - m}\!\!\right) = \frac{(n - 1)!}{(n-m)!(m-1)!} \]
+multichoose1 :: Int -> Int -> Integer
+multichoose1 bins balls
   | balls < bins || bins < 0 =
       err' $ "invalid parameters: " ++ show (balls,bins)
-  | otherwise = countDistributions balls' bins
+  | otherwise = multichoose balls' bins
   where
-    err' = err . ("unrankDistribution1: " ++)
+    err' = err . ("multichoose1: " ++)
     balls' = balls - bins
